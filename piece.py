@@ -1,4 +1,5 @@
 import abc
+import logging
 from enum import Enum
 
 class Color(Enum):
@@ -18,9 +19,36 @@ class EmptySquare:
     def __str__(self):
         return ' '
 
+class LegalMoveStrategy(metaclass = abc.ABCMeta):
+    def __init__(self, game, square):
+        self.game = game
+        self.square = square
+        self.piece = self.game.position[square]
+
+    @abc.abstractmethod
+    def get_legal_moves(self):
+        raise SyntaxError("Implemented in subclass.")
+
+    @staticmethod
+    def from_piece(piece):
+        pass
+
+
+class LegalPawnMoveStrategy(LegalMoveStrategy):
+    def get_legal_moves(self):
+        moves = set()
+        moves |= set(x + self.square for x in self.piece.potential_advances() if self.game.is_empty(x + self.square))
+        logging.info("Potential advances: %s", moves)
+        moves |= set(x + self.square for x in self.piece.potential_captures() if self.game.is_capturable(x + self.square))
+        logging.info("With captures: %s", moves)
+        return moves
+
+
 class Piece(metaclass = abc.ABCMeta):
     def __init__(self, color):
         self.color = color
+        self.moves = []
+        self.pins = []
 
     def __str__(self):
         return self.short_name if self.color == Color.WHITE else self.short_name.lower()
@@ -64,10 +92,14 @@ class King(Piece):
 class Pawn(Piece):
     name = 'Pawn'
     short_name = 'P'
+    legal_move_strategy = LegalPawnMoveStrategy
 
-    @property
-    def move_matrix(self):
-        return (UP, ) if self.color == Color.WHITE else (DOWN, )
+    def potential_advances(self):
+        if self.moves == []:
+            return {UP, UP + UP} if self.color == Color.WHITE else {DOWN, DOWN + DOWN}
+
+    def potential_captures(self):
+        return {UP + LEFT, UP + RIGHT} if self.color == Color.WHITE else {DOWN + LEFT, DOWN + RIGHT}
 
 PIECE_MAPPING = {
     'r': Rook,

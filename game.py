@@ -4,7 +4,8 @@ import itertools
 import logging
 
 from piece import Piece
-from collections import OrderedDict
+from piece import Color
+from piece import EmptySquare
 
 
 STANDARD_STARTING_POSITION = [
@@ -24,10 +25,8 @@ A_THRU_H = 'ABCDEFGH'
 class Game:
     def __init__(self):
         self.position = Position(STANDARD_STARTING_POSITION)
-        self.black = None
-        self.white = None
         self.move_history = []
-        self.active_player = self.white
+        self.active_player = Color.WHITE
         self.captured_pieces = set()
 
     @property
@@ -41,11 +40,31 @@ class Game:
         raise NotImplementedError("No.")
 
 
-    def legal_moves_for_piece(self, piece):
-        pass
+    def legal_moves_for_square(self, square):
+        return self.position[square].legal_move_strategy(self, square).get_legal_moves()
 
     def show(self):
         print(self.position)
+
+    def move(self, origin, destination):
+        if self.position[origin].color != self.active_player:
+            raise ValueError("That piece belongs to the inactive player!")
+
+    def is_empty(self, square):
+        logging.info("Checking if %s is empty...", square)
+        result = self.position[square].__class__ == EmptySquare
+        logging.info("%s is %s", square, 'empty' if result else 'not empty')
+        return result
+
+    def is_capturable(self, square):
+        logging.info("Checking if %s is capturable...", square)
+        result = not self.is_empty(square) and self.position[square].color != self.active_player
+        logging.info("%s is %s", square, 'capturable' if result else 'not capturable')
+        return result
+
+    @staticmethod
+    def is_on_board(square):
+        return 0 <= square <= 63
 
 
 class Position:
@@ -72,6 +91,10 @@ class Position:
             list_repr.append(str([str(x) for x in self.position[first_sq_in_row:first_sq_in_row + 8]]))
         return '\n'.join(list_repr)
 
+    def __getitem__(self, index):
+        return self.position[index]
+
+
 
 def humanize_square_name(index):
     string_index = str(index)
@@ -85,6 +108,7 @@ def main():
     logging.basicConfig(level = logging.INFO)
     game = Game()
     game.show()
+    print(game.legal_moves_for_square(48))
 
 if __name__ == '__main__':
     main()
