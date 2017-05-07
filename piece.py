@@ -5,6 +5,12 @@ class Color(Enum):
     WHITE = 1
     BLACK = 2
 
+EMPTY_SQUARE = ' '
+UP = -8
+DOWN = 8
+LEFT = -1
+RIGHT = 1
+
 class EmptySquare:
     def __init__(self):
         pass
@@ -21,7 +27,7 @@ class Piece(metaclass = abc.ABCMeta):
 
     @staticmethod
     def from_notation(piece_notation):
-        if piece_notation is None:
+        if piece_notation == EMPTY_SQUARE:
             return EmptySquare()
 
         piece_class = PIECE_MAPPING[piece_notation.lower()]
@@ -31,6 +37,10 @@ class Piece(metaclass = abc.ABCMeta):
 class Rook(Piece):
     name = 'Rook'
     short_name = 'R'
+
+    @staticmethod
+    def enumerate_potential_moves(square):
+        pass
 
 class Knight(Piece):
     name = 'Knight'
@@ -47,10 +57,17 @@ class Queen(Piece):
 class King(Piece):
     name = 'King'
     short_name = 'K'
+    move_matrix = (UP, DOWN, LEFT, RIGHT,
+                   UP + LEFT, UP + RIGHT,
+                   DOWN + LEFT, DOWN + RIGHT)
 
 class Pawn(Piece):
     name = 'Pawn'
     short_name = 'P'
+
+    @property
+    def move_matrix(self):
+        return (UP, ) if self.color == Color.WHITE else (DOWN, )
 
 PIECE_MAPPING = {
     'r': Rook,
