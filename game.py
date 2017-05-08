@@ -1,11 +1,16 @@
 import copy
 import string
-import itertools
 import logging
+import operator
+import itertools
 
 from piece import Piece
 from piece import Color
 from piece import EmptySquare
+
+from util import humanize_square_name
+from util import dehumanize_square_name
+from util import get_move_facts
 
 
 STANDARD_STARTING_POSITION = [
@@ -19,8 +24,8 @@ STANDARD_STARTING_POSITION = [
     'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
         ]
 EMPTY_BOARD = [' '] * 64
-
-A_THRU_H = 'ABCDEFGH'
+VERTICAL_STEP = 8
+HORIZONTAL_STEP = 1
 
 class Game:
     def __init__(self):
@@ -41,6 +46,7 @@ class Game:
 
 
     def legal_moves_for_square(self, square):
+        square = square if type(square) == int else dehumanize_square_name(square)
         return self.position[square].legal_move_strategy(self, square).get_legal_moves()
 
     def show(self):
@@ -50,21 +56,37 @@ class Game:
         if self.position[origin].color != self.active_player:
             raise ValueError("That piece belongs to the inactive player!")
 
+    def is_empty_or_capturable(self, square):
+        return self.is_empty(square) or self.is_capturable(square)
+
     def is_empty(self, square):
-        logging.info("Checking if %s is empty...", square)
+        logging.debug("Checking if %s is empty...", square)
         result = self.position[square].__class__ == EmptySquare
-        logging.info("%s is %s", square, 'empty' if result else 'not empty')
+        logging.debug("%s is %s", square, 'empty' if result else 'not empty')
         return result
 
     def is_capturable(self, square):
-        logging.info("Checking if %s is capturable...", square)
+        logging.debug("Checking if %s is capturable...", square)
         result = not self.is_empty(square) and self.position[square].color != self.active_player
-        logging.info("%s is %s", square, 'capturable' if result else 'not capturable')
+        logging.debug("%s is %s", square, 'capturable' if result else 'not capturable')
         return result
 
-    @staticmethod
-    def is_on_board(square):
-        return 0 <= square <= 63
+    def is_path_clear(self, origin, move):
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(origin, move)
+        if row_dist == 0 and col_dist_if_moved > 0:
+            step_magnitude = HORIZONTAL_STEP
+        if row_dist > 0 and col_dist_if_moved == 0:
+            step_magnitude = VERTICAL_STEP
+        if row_dist > 0 and col_dist_if_moved > 0 and move % 9 == 0:
+            step_magnitude = DIAGANOL_STEP
+
+        step = operator.__add__ if move < 0 else operator.__sub__
+        move = step(move, step_magnitude)
+        while move != 0:
+            if not self.is_empty(move + origin): return False
+            move = step(move, step_magnitude)
+
+        return True
 
 
 class Position:
@@ -94,21 +116,11 @@ class Position:
     def __getitem__(self, index):
         return self.position[index]
 
-
-
-def humanize_square_name(index):
-    string_index = str(index)
-    distance_from_top = index // 8
-    row = 8 - distance_from_top
-    col = A_THRU_H[index - distance_from_top]
-    return col + row
-
-
 def main():
-    logging.basicConfig(level = logging.INFO)
+    logging.basicConfig(level = logging.DEBUG)
     game = Game()
     game.show()
-    print(game.legal_moves_for_square(48))
+    print(set(humanize_square_name(x) for x in game.legal_moves_for_square('A2')))
 
 if __name__ == '__main__':
     main()
