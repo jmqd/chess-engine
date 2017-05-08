@@ -28,8 +28,8 @@ VERTICAL_STEP = 8
 HORIZONTAL_STEP = 1
 
 class Game:
-    def __init__(self):
-        self.position = Position(STANDARD_STARTING_POSITION)
+    def __init__(self, position=None):
+        self.position = position or Position(STANDARD_STARTING_POSITION)
         self.move_history = []
         self.active_player = Color.WHITE
         self.captured_pieces = set()
@@ -77,8 +77,8 @@ class Game:
             step_magnitude = HORIZONTAL_STEP
         if row_dist > 0 and col_dist_if_moved == 0:
             step_magnitude = VERTICAL_STEP
-        if row_dist > 0 and col_dist_if_moved > 0 and move % 9 == 0:
-            step_magnitude = DIAGANOL_STEP
+        if row_dist > 0 and col_dist_if_moved > 0:
+            step_magnitude = 9 if move % 9 == 0 else 7
 
         step = operator.__add__ if move < 0 else operator.__sub__
         move = step(move, step_magnitude)
@@ -115,12 +115,3 @@ class Position:
 
     def __getitem__(self, index):
         return self.position[index]
-
-def main():
-    logging.basicConfig(level = logging.DEBUG)
-    game = Game()
-    game.show()
-    print(set(humanize_square_name(x) for x in game.legal_moves_for_square('A2')))
-
-if __name__ == '__main__':
-    main()
