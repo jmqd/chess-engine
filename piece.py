@@ -13,10 +13,14 @@ class Color(Enum):
     BLACK = 2
 
 EMPTY_SQUARE = ' '
-UP = -8
 DOWN = 8
-LEFT = -1
 RIGHT = 1
+UP = DOWN * -1
+LEFT = RIGHT * -1
+DOWN_RIGHT = DOWN + RIGHT
+DOWN_LEFT = DOWN + LEFT
+UP_LEFT = UP + LEFT
+UP_RIGHT = UP + RIGHT
 
 class EmptySquare:
     def __init__(self):
@@ -31,12 +35,11 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
         self.square = square
         self.piece = self.game.position[square]
 
-    @abc.abstractmethod
     def get_legal_moves(self):
-        raise SyntaxError("Implemented in subclass.")
+        return set(self.square + move for move in self.piece.potentials() if self.is_legal(move))
 
     @abc.abstractmethod
-    def is_legal_move(self, move):
+    def is_legal(self, move):
         raise SyntaxError("Must implement in subclass.")
 
     @staticmethod
@@ -44,10 +47,7 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
         pass
 
 class LegalKnightMoveStrategy(LegalMoveStrategy):
-    def get_legal_moves(self):
-        return set(x + self.square for x in self.piece.potentials() if self.is_legal_move(x))
-
-    def is_legal_move(self, move):
+    def is_legal(self, move):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
         expected_col_difference = 1 if row_dist == 2 else 2
 
@@ -63,13 +63,22 @@ class LegalKnightMoveStrategy(LegalMoveStrategy):
 
         return all(legal_knight_move_invariants)
 
+class LegalBishopMoveStrategy(LegalMoveStrategy):
+    def get_legal_moves(self):
+        return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
+
+    def is_legal(self, move):
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        legal_bishop_move_invariants = (
+                is_valid_move(self.square, move),
+                self.game.is_empty_or_capturable(square_if_moved),
+                self.game.is_path_clear(self.square, move)
+                )
+
+        return all(legal_bishop_move_invariants)
 
 class LegalPawnMoveStrategy(LegalMoveStrategy):
-    def get_legal_moves(self):
-        moves = set(x + self.square for x in self.piece.potentials() if self.is_legal_move(x))
-        return moves
-
-    def is_legal_move(self, move):
+    def is_legal(self, move):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
         if col_dist_if_moved == 0:
             pawn_move_invariants = (
@@ -121,16 +130,43 @@ class Knight(Piece):
     legal_move_strategy = LegalKnightMoveStrategy
 
     def potentials(self):
-        return {UP + LEFT + LEFT, UP + UP + LEFT, UP + RIGHT + RIGHT,
-                UP + UP + RIGHT, RIGHT + RIGHT + DOWN, RIGHT + DOWN + DOWN,
-                DOWN + DOWN + LEFT, LEFT + LEFT + DOWN}
+        return {UP_LEFT + LEFT, UP + UP_LEFT, UP_RIGHT + RIGHT,
+                UP + UP_RIGHT, RIGHT + DOWN_RIGHT, DOWN_RIGHT + DOWN,
+                DOWN + DOWN_LEFT, LEFT + DOWN_LEFT}
 
 class Bishop(Piece):
     name = 'Bishop'
     short_name = 'B'
+    legal_move_strategy = LegalBishopMoveStrategy
 
-    def potentials(self):
-        return set()
+    def potentials(self, square):
+        horizontal_index = square % 8
+        vertical_index = square // 8
+        left_threshold = horizontal_index
+        right_threshold = 7 - horizontal_index
+        up_threshold = vertical_index
+        down_threshold = 7 - vertical_index
+
+        # in the running for ugliest block of code I've ever written.
+        # TODO: write Bishop movement elegantly
+        possibles = []
+        for i in range(1, min(up_threshold, left_threshold) + 1, 1):
+            move = UP_LEFT * i
+            possibles.append(move)
+
+        for i in range(1, min(down_threshold, left_threshold) + 1, 1):
+            move = DOWN_LEFT * i
+            possibles.append(move)
+
+        for i in range(1, min(up_threshold, right_threshold) + 1, 1):
+            move = UP_RIGHT * i
+            possibles.append(move)
+
+        for i in range(1, min(down_threshold, right_threshold) + 1, 1):
+            move = DOWN_LEFT * i
+            possibles.append(move)
+
+        return set(possibles)
 
 class Queen(Piece):
     name = 'Queen'
@@ -145,8 +181,8 @@ class King(Piece):
 
     def potentials(self):
         return {UP, DOWN, LEFT, RIGHT,
-                UP + LEFT, UP + RIGHT,
-                DOWN + LEFT, DOWN + RIGHT}
+                UP_LEFT, UP_RIGHT,
+                DOWN_LEFT, DOWN_RIGHT}
 
 
 class Pawn(Piece):
@@ -162,7 +198,7 @@ class Pawn(Piece):
             return {UP, UP + UP} if self.color == Color.WHITE else {DOWN, DOWN + DOWN}
 
     def potential_captures(self):
-        return {UP + LEFT, UP + RIGHT} if self.color == Color.WHITE else {DOWN + LEFT, DOWN + RIGHT}
+        return {UP_LEFT, UP_RIGHT} if self.color == Color.WHITE else {DOWN_LEFT, DOWN_RIGHT}
 
 PIECE_MAPPING = {
     'r': Rook,
