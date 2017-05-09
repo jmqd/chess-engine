@@ -11,6 +11,7 @@ from piece import EmptySquare
 from util import humanize_square_name
 from util import dehumanize_square_name
 from util import get_move_facts
+from util import A_THRU_H
 
 
 STANDARD_STARTING_POSITION = [
@@ -31,33 +32,81 @@ class Game:
     def __init__(self, position=None):
         self.position = position or Position(STANDARD_STARTING_POSITION)
         self.move_history = []
-        self.active_player = Color.WHITE
-        self.captured_pieces = set()
+        self.active_player = Color.white
+        self.captured_pieces = []
+        self.is_playing = True
+
+    def next_player(self):
+        self.active_player = Color.white if self.active_player == Color.black else Color.black
 
     @property
-    def legal_moves(self):
-        legal_moves = []
-        for square, piece in self.position.pieces:
-            potential_moves = piece.enumerate_potential_moves(square)
-
-    @legal_moves.setter
-    def legal_moves(self, val):
-        raise NotImplementedError("No.")
-
+    def inactive_player(self):
+        return Color.white if self.active_player == Color.black else Color.white
 
     def legal_moves_for_square(self, square):
         square = square if type(square) == int else dehumanize_square_name(square)
         return self.position[square].legal_move_strategy(self, square).get_legal_moves()
 
+    def find_all_legal_moves(self):
+        legal_moves = set()
+        for i, piece in enumerate(self.position):
+            if piece.__class__ == EmptySquare or piece.color != self.active_player: continue
+            legal_moves |= set(humanize_square_name(i) + '->' + humanize_square_name(x) for x in self.legal_moves_for_square(i))
+        return legal_moves
+
+
     def show(self):
-        print(self.position)
+        screen = []
+        for index, line in enumerate(str(self.position).split('\n')):
+            print(8 - index, line)
+        print(" " * 4 + '    '.join(x for x in A_THRU_H))
+
 
     def move(self, origin, destination):
-        if self.position[origin].color != self.active_player:
-            raise ValueError("That piece belongs to the inactive player!")
+        piece = self.position[origin]
+        new_square = destination if type(destination) == int else dehumanize_square_name(destination)
+
+        if not isinstance(piece, Piece):
+            raise ValueError("That square is empty!")
+
+        if piece.color != self.active_player:
+            raise ValueError("That piece belongs to {}!".format(self.active_player.name))
+
+        legal_moves = self.legal_moves_for_square(origin)
+
+        if new_square not in legal_moves:
+            raise ValueError("You can't move that there!")
+
+        if self.is_occupied(new_square):
+            self.captured_pieces.append(self.position[new_square])
+
+        self.position[origin], self.position[new_square] = EmptySquare(), piece
+        print("Moved the {} at {} to {}.".format(piece.name, origin, destination))
+        self.move_history.append((origin, destination))
+        self.next_player()
+
+    @staticmethod
+    def play():
+        game = Game()
+        while game.is_playing:
+            game.show()
+            move = input("{} to move: ".format(game.active_player.name))
+            if move == 'listAll':
+                print(game.find_all_legal_moves())
+            else:
+                origin, destination = move.split('->')
+                try:
+                    game.move(origin, destination)
+                except Exception as e:
+                    print("Sorry, ", e)
+
+
 
     def is_empty_or_capturable(self, square):
         return self.is_empty(square) or self.is_capturable(square)
+
+    def is_occupied(self, square):
+        return not self.is_empty(square)
 
     def is_empty(self, square):
         logging.debug("Checking if %s is empty...", square)
@@ -85,13 +134,13 @@ class Game:
         while move != 0:
             if not self.is_empty(move + origin): return False
             move = step(move, step_magnitude)
-
         return True
 
 
 class Position:
     def __init__(self, position_data):
         self.position = self.serialize(position_data)
+        self.__it_checkpoint = -1
 
     @property
     def pieces(self):
@@ -113,5 +162,24 @@ class Position:
             list_repr.append(str([str(x) for x in self.position[first_sq_in_row:first_sq_in_row + 8]]))
         return '\n'.join(list_repr)
 
-    def __getitem__(self, index):
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.__it_checkpoint += 1
+
+        if self.__it_checkpoint > 63:
+            self.__it_checkpoint = -1
+            raise StopIteration
+
+        return self.position[self.__it_checkpoint]
+
+
+    def __getitem__(self, square):
+        index = square if type(square) == int else dehumanize_square_name(square)
         return self.position[index]
+
+    def __setitem__(self, square, value):
+        index = square if type(square) == int else dehumanize_square_name(square)
+        self.position[index] = value
+

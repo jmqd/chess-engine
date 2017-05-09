@@ -1,7 +1,6 @@
 import abc
 import logging
 from enum import Enum
-
 from util import humanize_square_name
 from util import get_move_facts
 from util import get_row_distance
@@ -9,8 +8,8 @@ from util import is_valid_move
 from util import is_on_board
 
 class Color(Enum):
-    WHITE = 1
-    BLACK = 2
+    white = 1
+    black = 2
 
 # piece values, roughly
 QUEEN_VALUE = 9
@@ -113,10 +112,13 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
 class KingLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
-        king_move_invariants = (
-                is_valid_move(self.square, move),
-                self.game.is_empty_or_capturable(square_if_moved)
-                )
+        try:
+            king_move_invariants = (
+                    is_valid_move(self.square, move),
+                    self.game.is_empty_or_capturable(square_if_moved)
+                    )
+        except IndexError:
+            return False
         return all(king_move_invariants)
 
 
@@ -127,7 +129,7 @@ class Piece(metaclass = abc.ABCMeta):
         self.pins = []
 
     def __str__(self):
-        return self.short_name if self.color == Color.WHITE else self.short_name.lower()
+        return self.short_name if self.color == Color.white else self.short_name.lower()
 
     @staticmethod
     def from_notation(piece_notation):
@@ -135,7 +137,7 @@ class Piece(metaclass = abc.ABCMeta):
             return EmptySquare()
 
         piece_class = PIECE_MAPPING[piece_notation.lower()]
-        color = Color.WHITE if piece_notation.isupper() else Color.BLACK
+        color = Color.white if piece_notation.isupper() else Color.black
         return piece_class(color)
 
 
@@ -262,10 +264,10 @@ class Pawn(Piece):
 
     def potential_advances(self):
         if self.moves == []:
-            return {UP, UP + UP} if self.color == Color.WHITE else {DOWN, DOWN + DOWN}
+            return {UP, UP + UP} if self.color == Color.white else {DOWN, DOWN + DOWN}
 
     def potential_captures(self):
-        return {UP_LEFT, UP_RIGHT} if self.color == Color.WHITE else {DOWN_LEFT, DOWN_RIGHT}
+        return {UP_LEFT, UP_RIGHT} if self.color == Color.white else {DOWN_LEFT, DOWN_RIGHT}
 
 PIECE_MAPPING = {
     'r': Rook,

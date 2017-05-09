@@ -15,13 +15,7 @@ TEST_POSITION_1 = [
         ]
 
 def main():
-    logging.basicConfig(level = logging.DEBUG)
-    test_position = Position(TEST_POSITION_1)
-    game = Game(test_position)
-    game.show()
-    print(set(humanize_square_name(x) for x in game.legal_moves_for_square('F5')))
-    print(set(humanize_square_name(x) for x in game.legal_moves_for_square('D3')))
-    game.show()
+    Game.play()
 
 if __name__ == '__main__':
     main()
