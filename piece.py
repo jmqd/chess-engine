@@ -12,6 +12,14 @@ class Color(Enum):
     WHITE = 1
     BLACK = 2
 
+# piece values, roughly
+QUEEN_VALUE = 9
+PAWN_VALUE = 1
+BISHOP_VALUE = 3.1
+KNIGHT_VALUE = 3
+ROOK_VALUE = 5
+
+# movement consts
 EMPTY_SQUARE = ' '
 DOWN = 8
 RIGHT = 1
@@ -35,18 +43,22 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
         self.square = square
         self.piece = self.game.position[square]
 
+    def is_legal(self, move):
+        '''A common implementation of is_legal. Can be overridden for exception pieces.'''
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        default_legal_move_invariants = (
+                is_valid_move(self.square, move),
+                self.game.is_empty_or_capturable(square_if_moved),
+                self.game.is_path_clear(self.square, move)
+                )
+
+        return all(default_legal_move_invariants)
+
     def get_legal_moves(self):
         return set(self.square + move for move in self.piece.potentials() if self.is_legal(move))
 
-    @abc.abstractmethod
-    def is_legal(self, move):
-        raise SyntaxError("Must implement in subclass.")
 
-    @staticmethod
-    def from_piece(piece):
-        pass
-
-class LegalKnightMoveStrategy(LegalMoveStrategy):
+class KnightLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
         expected_col_difference = 1 if row_dist == 2 else 2
@@ -63,21 +75,24 @@ class LegalKnightMoveStrategy(LegalMoveStrategy):
 
         return all(legal_knight_move_invariants)
 
-class LegalBishopMoveStrategy(LegalMoveStrategy):
+#TODO: lots of repetition here. Use mixins. Clean it up.
+
+class BishopLegalMoveStrategy(LegalMoveStrategy):
     def get_legal_moves(self):
         return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
 
-    def is_legal(self, move):
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
-        legal_bishop_move_invariants = (
-                is_valid_move(self.square, move),
-                self.game.is_empty_or_capturable(square_if_moved),
-                self.game.is_path_clear(self.square, move)
-                )
 
-        return all(legal_bishop_move_invariants)
+class RookLegalMoveStrategy(LegalMoveStrategy):
+    def get_legal_moves(self):
+        return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
 
-class LegalPawnMoveStrategy(LegalMoveStrategy):
+
+class QueenLegalMoveStrategy(LegalMoveStrategy):
+    def get_legal_moves(self):
+        return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
+
+
+class PawnLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
         if col_dist_if_moved == 0:
@@ -93,6 +108,16 @@ class LegalPawnMoveStrategy(LegalMoveStrategy):
                     self.game.is_capturable(square_if_moved)
                     )
         return all(pawn_move_invariants)
+
+
+class KingLegalMoveStrategy(LegalMoveStrategy):
+    def is_legal(self, move):
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        king_move_invariants = (
+                is_valid_move(self.square, move),
+                self.game.is_empty_or_capturable(square_if_moved)
+                )
+        return all(king_move_invariants)
 
 
 class Piece(metaclass = abc.ABCMeta):
@@ -113,21 +138,22 @@ class Piece(metaclass = abc.ABCMeta):
         color = Color.WHITE if piece_notation.isupper() else Color.BLACK
         return piece_class(color)
 
+
 class Rook(Piece):
     name = 'Rook'
     short_name = 'R'
+    value = ROOK_VALUE
+    legal_move_strategy = RookLegalMoveStrategy
 
-    @staticmethod
-    def enumerate_potential_moves(square):
-        pass
+    def potentials(self, square):
+        return get_horizontal_moves(square) | get_vertical_moves(square)
 
-    def potentials(self):
-        return set()
 
 class Knight(Piece):
     name = 'Knight'
     short_name = 'N'
-    legal_move_strategy = LegalKnightMoveStrategy
+    value = KNIGHT_VALUE
+    legal_move_strategy = KnightLegalMoveStrategy
 
     def potentials(self):
         return {UP_LEFT + LEFT, UP + UP_LEFT, UP_RIGHT + RIGHT,
@@ -137,47 +163,87 @@ class Knight(Piece):
 class Bishop(Piece):
     name = 'Bishop'
     short_name = 'B'
-    legal_move_strategy = LegalBishopMoveStrategy
+    value = BISHOP_VALUE
+    legal_move_strategy = BishopLegalMoveStrategy
 
     def potentials(self, square):
-        horizontal_index = square % 8
-        vertical_index = square // 8
-        left_threshold = horizontal_index
-        right_threshold = 7 - horizontal_index
-        up_threshold = vertical_index
-        down_threshold = 7 - vertical_index
+        return get_diagonal_moves(square)
 
-        # in the running for ugliest block of code I've ever written.
-        # TODO: write Bishop movement elegantly
-        possibles = []
-        for i in range(1, min(up_threshold, left_threshold) + 1, 1):
-            move = UP_LEFT * i
-            possibles.append(move)
-
-        for i in range(1, min(down_threshold, left_threshold) + 1, 1):
-            move = DOWN_LEFT * i
-            possibles.append(move)
-
-        for i in range(1, min(up_threshold, right_threshold) + 1, 1):
-            move = UP_RIGHT * i
-            possibles.append(move)
-
-        for i in range(1, min(down_threshold, right_threshold) + 1, 1):
-            move = DOWN_LEFT * i
-            possibles.append(move)
-
-        return set(possibles)
 
 class Queen(Piece):
     name = 'Queen'
     short_name = 'Q'
+    value = QUEEN_VALUE
+    legal_move_strategy = QueenLegalMoveStrategy
 
-    def potentials(self):
-        return set()
+    def potentials(self, square):
+        return get_diagonal_moves(square) | get_horizontal_moves(square) | get_vertical_moves(square)
+
+def get_horizontal_moves(square):
+    horizontal_index = square % 8
+    left_threshold = horizontal_index
+    right_threshold = 7 - horizontal_index
+
+    possibles = []
+    for i in range(1, left_threshold + 1):
+        move = LEFT * i
+        possibles.append(move)
+
+    for i in range(1, right_threshold + 1):
+        move = RIGHT * i
+        possibles.append(move)
+
+    return set(possibles)
+
+def get_vertical_moves(square):
+    vertical_index = square // 8
+    up_threshold = vertical_index
+    down_threshold = 7 - vertical_index
+
+    possibles = []
+    for i in range(1, up_threshold + 1):
+        move = UP * i
+        possibles.append(move)
+
+    for i in range(1, down_threshold + 1):
+        move = DOWN * i
+        possibles.append(move)
+
+    return set(possibles)
+
+
+def get_diagonal_moves(square):
+    horizontal_index = square % 8
+    vertical_index = square // 8
+    left_threshold = horizontal_index
+    right_threshold = 7 - horizontal_index
+    up_threshold = vertical_index
+    down_threshold = 7 - vertical_index
+
+    possibles = []
+    for i in range(1, min(up_threshold, left_threshold) + 1):
+        move = UP_LEFT * i
+        possibles.append(move)
+
+    for i in range(1, min(down_threshold, left_threshold) + 1):
+        move = DOWN_LEFT * i
+        possibles.append(move)
+
+    for i in range(1, min(up_threshold, right_threshold) + 1):
+        move = UP_RIGHT * i
+        possibles.append(move)
+
+    for i in range(1, min(down_threshold, right_threshold) + 1):
+        move = DOWN_LEFT * i
+        possibles.append(move)
+
+    return set(possibles)
+
 
 class King(Piece):
     name = 'King'
     short_name = 'K'
+    legal_move_strategy = KingLegalMoveStrategy
 
     def potentials(self):
         return {UP, DOWN, LEFT, RIGHT,
@@ -188,7 +254,8 @@ class King(Piece):
 class Pawn(Piece):
     name = 'Pawn'
     short_name = 'P'
-    legal_move_strategy = LegalPawnMoveStrategy
+    value = PAWN_VALUE
+    legal_move_strategy = PawnLegalMoveStrategy
 
     def potentials(self):
         return self.potential_advances() | self.potential_captures()
