@@ -1,7 +1,7 @@
 import abc
 import logging
 from enum import Enum
-from util import humanize_square_name
+
 from util import get_move_facts
 from util import get_row_distance
 from util import is_valid_move
