@@ -1,21 +1,27 @@
 import logging
 
 A_THRU_H = 'ABCDEFGH'
+
+# pre-compute an array mapping to algebraic notation
+NUMERICAL_TO_ALGEBRAIC = ["{}{}".format(l, n) for n in range(8, 0, -1) for l in A_THRU_H]
+
+# pre-compute a dict mapping to the index
+ALGEBRAIC_TO_NUMERICAL = {a:n for n, a in enumerate(NUMERICAL_TO_ALGEBRAIC)}
+
 TOP_LEFT_SQUARE = 0
 BOTTOM_RIGHT_SQUARE = 63
 
-def humanize_square_name(index):
-    string_index = str(index)
-    distance_from_top = index // 8
-    row = 8 - distance_from_top
-    col = A_THRU_H[index % 8]
-    return col + str(row)
+def to_algebraic(numeric_index):
+    try:
+        return NUMERICAL_TO_ALGEBRAIC[numeric_index]
+    except IndexError:
+        return index
 
-def dehumanize_square_name(algebraic_notation):
-    col, row = algebraic_notation[0], algebraic_notation[1]
-    square = 8 * (8 - int(row)) + A_THRU_H.index(col)
-    logging.info("%s is human format. Representing as %s", algebraic_notation, square)
-    return square
+def to_numeric(algebraic_notation):
+    try:
+        return ALGEBRAIC_TO_NUMERICAL[algebraic_notation.upper()]
+    except IndexError:
+        return algebraic_notation
 
 def get_move_facts(origin, move):
     square_if_moved = origin + move
