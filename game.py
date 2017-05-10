@@ -1,10 +1,18 @@
 import copy
 import string
+import random
 import logging
 import operator
 import itertools
 
 from piece import Piece
+from piece import King
+from piece import Queen
+from piece import Rook
+from piece import Bishop
+from piece import Knight
+from piece import Pawn
+
 from piece import Color
 from piece import EmptySquare
 
@@ -27,6 +35,8 @@ STANDARD_STARTING_POSITION = [
 EMPTY_BOARD = [' '] * 64
 VERTICAL_STEP = 8
 HORIZONTAL_STEP = 1
+PIECE_TYPES = [King, Queen, Pawn, Rook, Knight, Bishop]
+COLORS = [Color.black, Color.white]
 
 class Game:
     def __init__(self, position=None):
@@ -89,6 +99,7 @@ class Game:
     def play():
         game = Game()
         while game.is_playing:
+            tmp_function_print_squares_for_pieces(game)
             game.show()
             move = input("{} to move: ".format(game.active_player.name))
             if move == 'listAll':
@@ -100,13 +111,14 @@ class Game:
                 except Exception as e:
                     print("Sorry, ", e)
 
-
-
     def is_empty_or_capturable(self, square):
         return self.is_empty(square) or self.is_capturable(square)
 
     def is_occupied(self, square):
         return not self.is_empty(square)
+
+    def is_attacked_by_active_player(square):
+        return square in self.attacked_squares
 
     def is_empty(self, square):
         logging.debug("Checking if %s is empty...", square)
@@ -136,6 +148,14 @@ class Game:
             move = step(move, step_magnitude)
         return True
 
+def tmp_function_print_squares_for_pieces(game):
+    piece_to_check = random.choice(PIECE_TYPES)
+    color_to_check = random.choice(COLORS)
+    squares = game.position.find_piece_squares(piece_to_check, color_to_check)
+    print("Randomly decided to show all positions of {} {}s".format(color_to_check.name,
+                                                                    piece_to_check.name),
+          end = ': ')
+    print([humanize_square_name(x) for x in squares])
 
 class Position:
     def __init__(self, position_data):
@@ -148,6 +168,13 @@ class Position:
             for num, piece in enumerate(col):
                 square = letter + num
                 yield square, piece
+
+    def find_piece_squares(self, piece_class, color):
+        squares = []
+        for sq_index, piece in enumerate(self):
+            if piece.color == color and isinstance(piece, piece_class):
+                squares.append(sq_index)
+        return squares
 
     @staticmethod
     def serialize(data):
