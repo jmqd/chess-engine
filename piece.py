@@ -31,7 +31,7 @@ UP_RIGHT = UP + RIGHT
 
 class EmptySquare:
     def __init__(self):
-        pass
+        self.color = None
 
     def __str__(self):
         return ' '
