@@ -15,8 +15,6 @@ from piece import Knight
 from piece import Pawn
 
 from piece import Color
-from piece import EmptySquare
-
 from engine import ChessEngine
 
 from util import to_algebraic
@@ -64,14 +62,13 @@ class Game:
         return Color.white if self.active_player == Color.black else Color.white
 
     def legal_moves_for_square(self, square):
-        square = square if type(square) == int else to_numeric(square)
-        return self.position[square].legal_move_strategy(self, square).get_legal_moves()
+        return square.piece.legal_move_strategy(self, square).get_legal_moves()
 
     def find_all_legal_moves(self):
         legal_moves = []
-        for i, piece in enumerate(self.position):
-            if piece.__class__ == EmptySquare or piece.color != self.active_player: continue
-            for legal_move in self.legal_moves_for_square(i):
+        for i, square in enumerate(self.position):
+            if square.is_empty() or square.piece.color != self.active_player: continue
+            for legal_move in self.legal_moves_for_square(square):
                 legal_moves.append((i, legal_move))
         return legal_moves
 
@@ -84,29 +81,29 @@ class Game:
 
 
     def move(self, origin, destination):
-        piece = self.position[origin]
-        new_square = destination if type(destination) == int else to_numeric(destination)
+        square = self.position[origin]
+        new_square = self.position[destination]
 
-        if not isinstance(piece, Piece):
+        if not isinstance(square.piece, Piece):
             raise ValueError("That square is empty!")
 
-        if piece.color != self.active_player:
+        if square.piece.color != self.active_player:
             raise ValueError("That piece belongs to {}!".format(self.active_player.name))
 
-        legal_moves = self.legal_moves_for_square(origin)
+        legal_moves = self.legal_moves_for_square(square)
 
-        if new_square not in legal_moves:
+        if new_square.numeric_index not in legal_moves:
             raise ValueError("You can't move that there!")
 
         captured_piece = None
 
-        if self.is_occupied(new_square):
-            captured_piece = self.position[new_square]
+        if new_square.is_occupied():
+            captured_piece = self.position[new_square].piece
             self.captured_pieces.append(captured_piece)
 
-        self.position[origin], self.position[new_square] = EmptySquare(), piece
+        square.piece, new_square.piece = None, square.piece
 
-        logging.info("Moved the {} at {} to {}.".format(piece.name, origin, destination))
+        logging.info("Moved the {} at {} to {}.".format(new_square.piece.name, origin, destination))
 
         self.move_history.append((origin, destination, captured_piece))
         self.active_player = self.next_player()
@@ -116,7 +113,11 @@ class Game:
 
     def rewind(self):
         origin, destination, captured_piece = self.move_history.pop()
-        self.position[origin], self.position[destination] = self.position[destination], captured_piece or EmptySquare()
+
+        original_square = self.position[origin].sqaure
+        current_square = self.position[destination].square
+
+        original_square.piece, current_square.piece = current_square.piece, captured_piece or None
 
         logging.info("Rewinded move {} to {}.".format(to_algebraic(origin), to_algebraic(destination)))
 
@@ -154,6 +155,7 @@ class Game:
                     game.move(origin, destination)
                 except Exception as e:
                     print("Sorry, ", e)
+                    raise
 
     def is_empty_or_capturable(self, square):
         return self.is_empty(square) or self.is_capturable(square)
@@ -164,31 +166,112 @@ class Game:
 
     def is_empty(self, square):
         logging.debug("Checking if %s is empty...", square)
-        result = self.position[square].__class__ == EmptySquare
+        result = self.position[square].is_empty
         logging.debug("%s is %s", square, 'empty' if result else 'not empty')
         return result
 
     def is_capturable(self, square):
         logging.debug("Checking if %s is capturable...", square)
-        result = not self.is_empty(square) and self.position[square].color != self.active_player
+        result = not self.is_empty(square) and self.position[square].piece.color != self.active_player
         logging.debug("%s is %s", square, 'capturable' if result else 'not capturable')
         return result
 
-    def is_path_clear(self, origin, move):
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(origin, move)
+
+class Position:
+    def __init__(self, position_data):
+        self.grid = self.serialize(position_data)
+
+        # state for iterator. probs should refactor this
+        self.__it_checkpoint = -1
+
+    def find_piece_squares(self, piece_class, color):
+        square_indices = []
+        for sq_index, square in enumerate(self):
+            if square.occupied_by() == color and isinstance(square.piece, piece_class):
+                square_indices.append(sq_index)
+        return square_indices
+
+    def is_path_clear(self, origin, displacement):
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(origin, displacement)
         if row_dist == 0 and col_dist_if_moved > 0:
             step_magnitude = HORIZONTAL_STEP
         if row_dist > 0 and col_dist_if_moved == 0:
             step_magnitude = VERTICAL_STEP
         if row_dist > 0 and col_dist_if_moved > 0:
-            step_magnitude = 9 if move % 9 == 0 else 7
+            step_magnitude = 9 if displacement % 9 == 0 else 7
 
-        step = operator.__add__ if move < 0 else operator.__sub__
-        move = step(move, step_magnitude)
-        while move != 0:
-            if not self.is_empty(move + origin): return False
-            move = step(move, step_magnitude)
+        step = operator.__add__ if displacement < 0 else operator.__sub__
+        displacement = step(displacement, step_magnitude)
+        while displacement != 0:
+            if not self[origin + displacement].is_empty():
+                return False
+            displacement = step(displacement, step_magnitude)
         return True
+
+    @staticmethod
+    def serialize(data):
+        internal_position = copy.deepcopy(EMPTY_BOARD)
+        for index, notated_char in enumerate(data):
+            internal_position[index] = Square(index, Piece.from_notation(notated_char))
+        return internal_position
+
+    def __str__(self):
+        list_repr = []
+        for first_sq_in_row in range(0, 64, 8):
+            list_repr.append(str([str(x) for x in self.grid[first_sq_in_row:first_sq_in_row + 8]]))
+        return '\n'.join(list_repr)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.__it_checkpoint += 1
+        if self.__it_checkpoint > 63:
+            self.__it_checkpoint = -1
+            raise StopIteration
+        return self.grid[self.__it_checkpoint]
+
+
+    def __getitem__(self, square):
+        index = square if type(square) == int else to_numeric(square)
+        return self.grid[index]
+
+    def __setitem__(self, square, value):
+        index = square if type(square) == int else to_numeric(square)
+        self.grid[index] = value
+
+class Square:
+    def __init__(self, numeric_index, piece=None):
+        self.numeric_index = numeric_index
+        self.algebraic_index = to_algebraic(numeric_index)
+        self._piece = piece
+
+    @property
+    def piece(self):
+        return self._piece
+
+    @piece.setter
+    def piece(self, val):
+        self._piece = val
+
+    def is_empty(self):
+        return self.piece is None
+
+    def is_occupied(self):
+        return self.piece is not None
+
+    def occupied_by(self):
+        if self.piece is None:
+            return None
+        else:
+            return self.piece.color
+
+    def __str__(self):
+        if self.piece is None:
+            return ' '
+        else:
+            return str(self.piece)
+
 
 def tmp_function_print_squares_for_pieces(game):
     piece_to_check = random.choice(PIECE_TYPES)
@@ -198,57 +281,4 @@ def tmp_function_print_squares_for_pieces(game):
                                                                     piece_to_check.name),
           end = ': ')
     print([to_algebraic(x) for x in squares])
-
-class Position:
-    def __init__(self, position_data):
-        self.position = self.serialize(position_data)
-        self.__it_checkpoint = -1
-
-    @property
-    def pieces(self):
-        for letter, col in self.position:
-            for num, piece in enumerate(col):
-                square = letter + num
-                yield square, piece
-
-    def find_piece_squares(self, piece_class, color):
-        squares = []
-        for sq_index, piece in enumerate(self):
-            if piece.color == color and isinstance(piece, piece_class):
-                squares.append(sq_index)
-        return squares
-
-    @staticmethod
-    def serialize(data):
-        internal_position = copy.deepcopy(EMPTY_BOARD)
-        for index, notated_char in enumerate(data):
-            internal_position[index] = Piece.from_notation(notated_char)
-        return internal_position
-
-    def __str__(self):
-        list_repr = []
-        for first_sq_in_row in range(0, 64, 8):
-            list_repr.append(str([str(x) for x in self.position[first_sq_in_row:first_sq_in_row + 8]]))
-        return '\n'.join(list_repr)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        self.__it_checkpoint += 1
-
-        if self.__it_checkpoint > 63:
-            self.__it_checkpoint = -1
-            raise StopIteration
-
-        return self.position[self.__it_checkpoint]
-
-
-    def __getitem__(self, square):
-        index = square if type(square) == int else to_numeric(square)
-        return self.position[index]
-
-    def __setitem__(self, square, value):
-        index = square if type(square) == int else to_numeric(square)
-        self.position[index] = value
 

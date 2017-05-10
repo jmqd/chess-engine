@@ -29,44 +29,37 @@ DOWN_LEFT = DOWN + LEFT
 UP_LEFT = UP + LEFT
 UP_RIGHT = UP + RIGHT
 
-class EmptySquare:
-    def __init__(self):
-        self.color = None
-
-    def __str__(self):
-        return ' '
-
 class LegalMoveStrategy(metaclass = abc.ABCMeta):
     def __init__(self, game, square):
         self.game = game
         self.square = square
-        self.piece = self.game.position[square]
+        self.piece = self.square.piece
 
     def is_legal(self, move):
         '''A common implementation of is_legal. Can be overridden for exception pieces.'''
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         default_legal_move_invariants = (
-                is_valid_move(self.square, move),
+                is_valid_move(self.square.numeric_index, move),
                 self.game.is_empty_or_capturable(square_if_moved),
-                self.game.is_path_clear(self.square, move)
+                self.game.position.is_path_clear(self.square.numeric_index, move)
                 )
 
         return all(default_legal_move_invariants)
 
     def get_legal_moves(self):
-        return set(self.square + move for move in self.piece.potentials() if self.is_legal(move))
+        return set(self.square.numeric_index + move for move in self.piece.potentials() if self.is_legal(move))
 
 
 class KnightLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         expected_col_difference = 1 if row_dist == 2 else 2
 
         try:
             legal_knight_move_invariants = (
                     row_dist in (1, 2),
                     abs(col_if_moved - current_col) == expected_col_difference,
-                    is_valid_move(self.square, move),
+                    is_valid_move(self.square.numeric_index, move),
                     self.game.is_empty_or_capturable(square_if_moved)
                     )
         except IndexError as e:
@@ -78,31 +71,31 @@ class KnightLegalMoveStrategy(LegalMoveStrategy):
 
 class BishopLegalMoveStrategy(LegalMoveStrategy):
     def get_legal_moves(self):
-        return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
+        return set(self.square.numeric_index + move for move in self.piece.potentials(self.square.numeric_index) if self.is_legal(move))
 
 
 class RookLegalMoveStrategy(LegalMoveStrategy):
     def get_legal_moves(self):
-        return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
+        return set(self.square.numeric_index + move for move in self.piece.potentials(self.square.numeric_index) if self.is_legal(move))
 
 
 class QueenLegalMoveStrategy(LegalMoveStrategy):
     def get_legal_moves(self):
-        return set(self.square + move for move in self.piece.potentials(self.square) if self.is_legal(move))
+        return set(self.square.numeric_index + move for move in self.piece.potentials(self.square.numeric_index) if self.is_legal(move))
 
 
 class PawnLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         if col_dist_if_moved == 0:
             pawn_move_invariants = (
-                    is_valid_move(self.square, move),
+                    is_valid_move(self.square.numeric_index, move),
                     self.game.is_empty(square_if_moved),
-                    self.game.is_path_clear(self.square, move)
+                    self.game.position.is_path_clear(self.square.numeric_index, move)
                     )
         else:
             pawn_move_invariants = (
-                    is_valid_move(self.square, move),
+                    is_valid_move(self.square.numeric_index, move),
                     col_dist_if_moved == 1,
                     self.game.is_capturable(square_if_moved)
                     )
@@ -111,10 +104,10 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
 
 class KingLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         try:
             king_move_invariants = (
-                    is_valid_move(self.square, move),
+                    is_valid_move(self.square.numeric_index, move),
                     self.game.is_empty_or_capturable(square_if_moved)
                     )
         except IndexError:
@@ -134,7 +127,7 @@ class Piece(metaclass = abc.ABCMeta):
     @staticmethod
     def from_notation(piece_notation):
         if piece_notation == EMPTY_SQUARE:
-            return EmptySquare()
+            return None
 
         piece_class = PIECE_MAPPING[piece_notation.lower()]
         color = Color.white if piece_notation.isupper() else Color.black
@@ -147,8 +140,8 @@ class Rook(Piece):
     value = ROOK_VALUE
     legal_move_strategy = RookLegalMoveStrategy
 
-    def potentials(self, square):
-        return get_horizontal_moves(square) | get_vertical_moves(square)
+    def potentials(self, square_index):
+        return get_horizontal_moves(square_index) | get_vertical_moves(square_index)
 
 
 class Knight(Piece):
@@ -168,8 +161,8 @@ class Bishop(Piece):
     value = BISHOP_VALUE
     legal_move_strategy = BishopLegalMoveStrategy
 
-    def potentials(self, square):
-        return get_diagonal_moves(square)
+    def potentials(self, square_index):
+        return get_diagonal_moves(square_index)
 
 
 class Queen(Piece):
@@ -178,11 +171,11 @@ class Queen(Piece):
     value = QUEEN_VALUE
     legal_move_strategy = QueenLegalMoveStrategy
 
-    def potentials(self, square):
-        return get_diagonal_moves(square) | get_horizontal_moves(square) | get_vertical_moves(square)
+    def potentials(self, square_index):
+        return get_diagonal_moves(square_index) | get_horizontal_moves(square_index) | get_vertical_moves(square_index)
 
-def get_horizontal_moves(square):
-    horizontal_index = square % 8
+def get_horizontal_moves(square_index):
+    horizontal_index = square_index % 8
     left_threshold = horizontal_index
     right_threshold = 7 - horizontal_index
 
@@ -197,8 +190,8 @@ def get_horizontal_moves(square):
 
     return set(possibles)
 
-def get_vertical_moves(square):
-    vertical_index = square // 8
+def get_vertical_moves(square_index):
+    vertical_index = square_index // 8
     up_threshold = vertical_index
     down_threshold = 7 - vertical_index
 
@@ -214,9 +207,9 @@ def get_vertical_moves(square):
     return set(possibles)
 
 
-def get_diagonal_moves(square):
-    horizontal_index = square % 8
-    vertical_index = square // 8
+def get_diagonal_moves(square_index):
+    horizontal_index = square_index % 8
+    vertical_index = square_index // 8
     left_threshold = horizontal_index
     right_threshold = 7 - horizontal_index
     up_threshold = vertical_index
