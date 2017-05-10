@@ -15,7 +15,7 @@ from piece import Knight
 from piece import Pawn
 
 from piece import Color
-from engine import ChessEngine
+from engine.engine import ChessEngine
 
 from util import to_algebraic
 from util import to_numeric
@@ -164,9 +164,9 @@ class Game:
         return not self.is_empty(square)
 
 
-    def is_empty(self, square):
+    def is_empty(self, square_index):
         logging.debug("Checking if %s is empty...", square)
-        result = self.position[square].is_empty
+        result = self.position[square_index].is_empty
         logging.debug("%s is %s", square, 'empty' if result else 'not empty')
         return result
 
@@ -233,7 +233,12 @@ class Position:
 
 
     def __getitem__(self, square):
-        index = square if type(square) == int else to_numeric(square)
+        if type(square) == int:
+            index = square
+        elif type(square) == str:
+            index = to_numeric(square)
+        elif type(square) == Square:
+            index = square.numeric_index
         return self.grid[index]
 
     def __setitem__(self, square, value):
