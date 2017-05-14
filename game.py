@@ -88,12 +88,14 @@ class Game:
             raise ValueError("That square is empty!")
 
         if square.piece.color != self.active_player:
-            raise ValueError("That piece belongs to {}!".format(self.active_player.name))
+            raise IllegalMoveException("That piece belongs to {}!".format(self.active_player.name))
 
         legal_moves = self.legal_moves_for_square(square)
 
+        logging.info("Legal moves for %s: %s", square, legal_moves)
+
         if new_square.numeric_index not in legal_moves:
-            raise ValueError("You can't move that there!")
+            raise IllegalMoveException("You can't move that there!")
 
         captured_piece = None
 
@@ -153,8 +155,9 @@ class Game:
                 origin, destination = move.split()
                 try:
                     game.move(origin, destination)
+                except ChessException as chess_exception:
+                    print("Sorry: ", chess_exception)
                 except Exception as e:
-                    print("Sorry, ", e)
                     raise
 
     def is_empty_or_capturable(self, square):
@@ -163,19 +166,17 @@ class Game:
     def is_occupied(self, square):
         return not self.is_empty(square)
 
-
     def is_empty(self, square_index):
-        logging.debug("Checking if %s is empty...", square)
-        result = self.position[square_index].is_empty
-        logging.debug("%s is %s", square, 'empty' if result else 'not empty')
+        logging.debug("Checking if %s is empty...", square_index)
+        result = self.position[square_index].is_empty()
+        logging.debug("%s is %s", square_index, 'empty' if result else 'not empty')
         return result
 
-    def is_capturable(self, square):
-        logging.debug("Checking if %s is capturable...", square)
-        result = not self.is_empty(square) and self.position[square].piece.color != self.active_player
-        logging.debug("%s is %s", square, 'capturable' if result else 'not capturable')
+    def is_capturable(self, square_index):
+        logging.debug("Checking if %s is capturable...", square_index)
+        result = not self.is_empty(square_index) and self.position[square_index].piece.color != self.active_player
+        logging.debug("%s is %s", to_algebraic(square_index), 'capturable' if result else 'not capturable')
         return result
-
 
 class Position:
     def __init__(self, position_data):
@@ -202,11 +203,20 @@ class Position:
 
         step = operator.__add__ if displacement < 0 else operator.__sub__
         displacement = step(displacement, step_magnitude)
+        if not self[origin + displacement].is_empty(): return False
         while displacement != 0:
             if not self[origin + displacement].is_empty():
                 return False
             displacement = step(displacement, step_magnitude)
         return True
+
+    @staticmethod
+    def transposition_of(position, move):
+        origin, destination = move
+        new_position = copy.deepcopy(position)
+        new_position[origin].piece, new_position[destination].piece = None, new_position[origin].piece
+        return new_position
+
 
     @staticmethod
     def serialize(data):
@@ -287,3 +297,5 @@ def tmp_function_print_squares_for_pieces(game):
           end = ': ')
     print([to_algebraic(x) for x in squares])
 
+class ChessException(Exception): pass
+class IllegalMoveException(ChessException, ValueError): pass
