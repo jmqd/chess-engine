@@ -15,7 +15,7 @@ def to_algebraic(numeric_index):
     try:
         return NUMERICAL_TO_ALGEBRAIC[numeric_index]
     except IndexError:
-        return index
+        return numeric_index
 
 def to_numeric(algebraic_notation):
     try:
