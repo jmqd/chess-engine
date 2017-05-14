@@ -6,6 +6,8 @@ from util import get_move_facts
 from util import get_row_distance
 from util import is_valid_move
 from util import is_on_board
+from util import to_algebraic
+from util import to_numeric
 
 class Color(Enum):
     white = 1
@@ -35,8 +37,15 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
         self.square = square
         self.piece = self.square.piece
 
+    def is_in_check(self):
+        move = self.move
+        proposed_position = self.game.position.transposition_of(self.game.position, move)
+        if proposed_position.is_in_check(self.game.active_player):
+            return True
+        return False
+
     def is_legal(self, move):
-        '''A common implementation of is_legal. Can be overridden for exception pieces.'''
+        '''A base implementation of is_legal. Can be overridden for exception pieces.'''
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         default_legal_move_invariants = (
                 is_valid_move(self.square.numeric_index, move),
@@ -105,6 +114,9 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
 class KingLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
+        logging.debug("checking legality of moving king from %s to %s",
+                to_algebraic(self.square.numeric_index),
+                to_algebraic(square_if_moved))
         try:
             king_move_invariants = (
                     is_valid_move(self.square.numeric_index, move),
@@ -112,7 +124,12 @@ class KingLegalMoveStrategy(LegalMoveStrategy):
                     )
         except IndexError:
             return False
-        return all(king_move_invariants)
+        result = all(king_move_invariants)
+        logging.debug("decided moving king at %s to %s is %s",
+                to_algebraic(self.square.numeric_index),
+                to_algebraic(square_if_moved),
+                "legal" if result else "not legal")
+        return result
 
 
 class Piece(metaclass = abc.ABCMeta):
