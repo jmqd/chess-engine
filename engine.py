@@ -1,7 +1,7 @@
 import random
 import operator
 
-from chess_engine.piece import Color
+from piece import Color
 
 class ChessEngine:
     def __init__(self, game):

@@ -15,7 +15,7 @@ from piece import Knight
 from piece import Pawn
 
 from piece import Color
-from engine.engine import ChessEngine
+from engine import ChessEngine
 
 from util import to_algebraic
 from util import to_numeric
