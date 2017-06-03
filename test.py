@@ -14,7 +14,7 @@ TEST_POSITION_1 = [
         ]
 
 def main():
-    logging.basicConfig(level = logging.INFO)
+    logging.basicConfig(level = logging.WARN)
     Game.play()
 
 if __name__ == '__main__':

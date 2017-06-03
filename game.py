@@ -287,7 +287,6 @@ class Square:
         else:
             return str(self.piece)
 
-
 def tmp_function_print_squares_for_pieces(game):
     piece_to_check = random.choice(PIECE_TYPES)
     color_to_check = random.choice(COLORS)
