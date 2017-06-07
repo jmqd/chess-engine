@@ -72,8 +72,7 @@ class Position:
 
         step = operator.__add__ if displacement < 0 else operator.__sub__
         displacement = step(displacement, step_magnitude)
-        if not self[origin + displacement].is_empty(): return False
-        while displacement != 0:
+        while displacement > step_magnitude:
             if not self[origin + displacement].is_empty():
                 return False
             displacement = step(displacement, step_magnitude)
