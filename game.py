@@ -1,8 +1,10 @@
 import sys
 import random
 import logging
+from typing import Tuple, Sequence, Any, Optional
 
 from position import Position
+from position import Square
 
 from piece import Piece
 from piece import Color
@@ -34,7 +36,7 @@ PIECE_TYPES = [King, Queen, Pawn, Rook, Knight, Bishop]
 COLORS = [Color.black, Color.white]
 
 class Game:
-    def __init__(self, position=None):
+    def __init__(self, position: Optional[Position] = None) -> None:
         self.position = position or Position(STANDARD_STARTING_POSITION)
         self.move_history = []
         self.active_player = Color.white
@@ -46,17 +48,17 @@ class Game:
         self.is_computer_playing = None
         self.computer_color = None
 
-    def next_player(self):
+    def next_player(self) -> Color:
         return Color.white if self.active_player == Color.black else Color.black
 
     @property
-    def inactive_player(self):
+    def inactive_player(self) -> Color:
         return Color.white if self.active_player == Color.black else Color.white
 
-    def legal_moves_for_square(self, square):
+    def legal_moves_for_square(self, square: Square) -> Sequence[int]:
         return square.piece.legal_move_strategy(self, square).get_legal_moves()
 
-    def find_all_legal_moves(self):
+    def find_all_legal_moves(self) -> Sequence[Tuple[int]]:
         legal_moves = []
         for i, square in enumerate(self.position):
             if square.is_empty() or square.piece.color != self.active_player: continue
@@ -65,14 +67,14 @@ class Game:
         return legal_moves
 
 
-    def show(self):
+    def show(self) -> None:
         screen = []
         for index, line in enumerate(str(self.position).split('\n')):
             print(8 - index, line)
         print(" " * 4 + '    '.join(x for x in A_THRU_H))
 
 
-    def move(self, origin, destination):
+    def move(self, origin: Any, destination: Any) -> None:
         square = self.position[origin]
         new_square = self.position[destination]
 
@@ -102,10 +104,10 @@ class Game:
         self.move_history.append((origin, destination, captured_piece))
         self.active_player = self.next_player()
 
-    def start_engine(self):
+    def start_engine(self) -> None:
         self.computer = ChessEngine(self)
 
-    def rewind(self):
+    def rewind(self) -> None:
         origin, destination, captured_piece = self.move_history.pop()
 
         original_square = self.position[origin].sqaure
@@ -117,13 +119,13 @@ class Game:
 
         self.active_player = self.next_player()
 
-    def prompt_for_mode(self):
+    def prompt_for_mode(self) -> None:
         self.is_computer_playing = True if input("Play against the computer? y/n > ") == "y" else False
         self.computer_color = Color.white if input("Choose black or white b/w > ") == 'b' else Color.black
         self.start_engine()
 
     @staticmethod
-    def play():
+    def play() -> None:
         game = Game()
         game.prompt_for_mode()
 
@@ -152,26 +154,26 @@ class Game:
                 except Exception as e:
                     raise
 
-    def is_empty_or_capturable(self, square):
+    def is_empty_or_capturable(self, square: Square) -> bool:
         return self.is_empty(square) or self.is_capturable(square)
 
-    def is_occupied(self, square):
+    def is_occupied(self, square: Square) -> bool:
         return not self.is_empty(square)
 
-    def is_empty(self, square_index):
+    def is_empty(self, square_index: Any) -> bool:
         logging.debug("Checking if %s is empty...", square_index)
         result = self.position[square_index].is_empty()
         logging.debug("%s is %s", square_index, 'empty' if result else 'not empty')
         return result
 
-    def is_capturable(self, square_index):
+    def is_capturable(self, square_index: Any) -> bool:
         logging.debug("Checking if %s is capturable...", square_index)
         result = not self.is_empty(square_index) and self.position[square_index].piece.color != self.active_player
         logging.debug("%s is %s", to_algebraic(square_index), 'capturable' if result else 'not capturable')
         return result
 
 
-def tmp_function_print_squares_for_pieces(game):
+def tmp_function_print_squares_for_pieces(game: Game) -> None:
     piece_to_check = random.choice(PIECE_TYPES)
     color_to_check = random.choice(COLORS)
     squares = game.position.find_piece_squares(piece_to_check, color_to_check)

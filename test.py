@@ -13,7 +13,7 @@ TEST_POSITION_1 = [
     ' ', ' ', ' ', ' ', 'K', 'B', 'N', 'R'
         ]
 
-def main():
+def main() -> None:
     logging.basicConfig(level = logging.WARN)
     Game.play()
 

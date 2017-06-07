@@ -1,6 +1,7 @@
 import abc
 import logging
 from enum import Enum
+from typing import Tuple, Optional, Sequence
 
 from util import get_move_facts
 from util import get_row_distance
@@ -12,6 +13,8 @@ from util import to_numeric
 class Color(Enum):
     white = 1
     black = 2
+
+Move = Tuple[int, int]
 
 # piece values, roughly
 QUEEN_VALUE = 9
@@ -37,14 +40,14 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
         self.square = square
         self.piece = self.square.piece
 
-    def is_in_check(self):
+    def is_in_check(self) -> bool:
         move = self.move
-        proposed_position = self.game.position.transposition_of(self.game.position, move)
+        proposed_position = self.game.position.get_transposition(move)
         if proposed_position.is_in_check(self.game.active_player):
             return True
         return False
 
-    def is_legal(self, move):
+    def is_legal(self, move: Move) -> bool:
         '''A base implementation of is_legal. Can be overridden for exception pieces.'''
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         default_legal_move_invariants = (
@@ -55,12 +58,12 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
 
         return all(default_legal_move_invariants)
 
-    def get_legal_moves(self):
+    def get_legal_moves(self) -> Sequence[int]:
         return set(self.square.numeric_index + move for move in self.piece.potentials() if self.is_legal(move))
 
 
 class KnightLegalMoveStrategy(LegalMoveStrategy):
-    def is_legal(self, move):
+    def is_legal(self, move: Move) -> bool:
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         expected_col_difference = 1 if row_dist == 2 else 2
 
@@ -79,22 +82,22 @@ class KnightLegalMoveStrategy(LegalMoveStrategy):
 #TODO: lots of repetition here. Use mixins. Clean it up.
 
 class BishopLegalMoveStrategy(LegalMoveStrategy):
-    def get_legal_moves(self):
+    def get_legal_moves(self) -> Sequence[int]:
         return set(self.square.numeric_index + move for move in self.piece.potentials(self.square.numeric_index) if self.is_legal(move))
 
 
 class RookLegalMoveStrategy(LegalMoveStrategy):
-    def get_legal_moves(self):
+    def get_legal_moves(self) -> Sequence[int]:
         return set(self.square.numeric_index + move for move in self.piece.potentials(self.square.numeric_index) if self.is_legal(move))
 
 
 class QueenLegalMoveStrategy(LegalMoveStrategy):
-    def get_legal_moves(self):
+    def get_legal_moves(self) -> Sequence[int]:
         return set(self.square.numeric_index + move for move in self.piece.potentials(self.square.numeric_index) if self.is_legal(move))
 
 
 class PawnLegalMoveStrategy(LegalMoveStrategy):
-    def is_legal(self, move):
+    def is_legal(self, move: Move) -> bool:
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         if col_dist_if_moved == 0:
             pawn_move_invariants = (
@@ -112,7 +115,7 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
 
 
 class KingLegalMoveStrategy(LegalMoveStrategy):
-    def is_legal(self, move):
+    def is_legal(self, move: Move) -> bool:
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
         logging.debug("checking legality of moving king from %s to %s",
                 to_algebraic(self.square.numeric_index),
@@ -133,16 +136,16 @@ class KingLegalMoveStrategy(LegalMoveStrategy):
 
 
 class Piece(metaclass = abc.ABCMeta):
-    def __init__(self, color):
+    def __init__(self, color: Color) -> None:
         self.color = color
         self.moves = []
         self.pins = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.short_name if self.color == Color.white else self.short_name.lower()
 
     @staticmethod
-    def from_notation(piece_notation):
+    def from_notation(piece_notation: str) -> Optional[object]:
         if piece_notation == EMPTY_SQUARE:
             return None
 
@@ -157,7 +160,7 @@ class Rook(Piece):
     value = ROOK_VALUE
     legal_move_strategy = RookLegalMoveStrategy
 
-    def potentials(self, square_index):
+    def potentials(self, square_index: int) -> Sequence[int]:
         return get_horizontal_moves(square_index) | get_vertical_moves(square_index)
 
 
@@ -167,7 +170,7 @@ class Knight(Piece):
     value = KNIGHT_VALUE
     legal_move_strategy = KnightLegalMoveStrategy
 
-    def potentials(self):
+    def potentials(self) -> Sequence[int]:
         return {UP_LEFT + LEFT, UP + UP_LEFT, UP_RIGHT + RIGHT,
                 UP + UP_RIGHT, RIGHT + DOWN_RIGHT, DOWN_RIGHT + DOWN,
                 DOWN + DOWN_LEFT, LEFT + DOWN_LEFT}
@@ -178,7 +181,7 @@ class Bishop(Piece):
     value = BISHOP_VALUE
     legal_move_strategy = BishopLegalMoveStrategy
 
-    def potentials(self, square_index):
+    def potentials(self, square_index: int) -> Sequence[int]:
         return get_diagonal_moves(square_index)
 
 
@@ -188,10 +191,10 @@ class Queen(Piece):
     value = QUEEN_VALUE
     legal_move_strategy = QueenLegalMoveStrategy
 
-    def potentials(self, square_index):
+    def potentials(self, square_index: int) -> Sequence[int]:
         return get_diagonal_moves(square_index) | get_horizontal_moves(square_index) | get_vertical_moves(square_index)
 
-def get_horizontal_moves(square_index):
+def get_horizontal_moves(square_index: int) -> Sequence[int]:
     horizontal_index = square_index % 8
     left_threshold = horizontal_index
     right_threshold = 7 - horizontal_index
@@ -207,7 +210,7 @@ def get_horizontal_moves(square_index):
 
     return set(possibles)
 
-def get_vertical_moves(square_index):
+def get_vertical_moves(square_index: int) -> Sequence[int]:
     vertical_index = square_index // 8
     up_threshold = vertical_index
     down_threshold = 7 - vertical_index
@@ -224,7 +227,7 @@ def get_vertical_moves(square_index):
     return set(possibles)
 
 
-def get_diagonal_moves(square_index):
+def get_diagonal_moves(square_index: int) -> Sequence[int]:
     horizontal_index = square_index % 8
     vertical_index = square_index // 8
     left_threshold = horizontal_index
@@ -257,7 +260,7 @@ class King(Piece):
     short_name = 'K'
     legal_move_strategy = KingLegalMoveStrategy
 
-    def potentials(self):
+    def potentials(self) -> Sequence[int]:
         return {UP, DOWN, LEFT, RIGHT,
                 UP_LEFT, UP_RIGHT,
                 DOWN_LEFT, DOWN_RIGHT}
@@ -269,14 +272,14 @@ class Pawn(Piece):
     value = PAWN_VALUE
     legal_move_strategy = PawnLegalMoveStrategy
 
-    def potentials(self):
+    def potentials(self) -> Sequence[int]:
         return self.potential_advances() | self.potential_captures()
 
-    def potential_advances(self):
+    def potential_advances(self) -> Sequence[int]:
         if self.moves == []:
             return {UP, UP + UP} if self.color == Color.white else {DOWN, DOWN + DOWN}
 
-    def potential_captures(self):
+    def potential_captures(self) -> Sequence[int]:
         return {UP_LEFT, UP_RIGHT} if self.color == Color.white else {DOWN_LEFT, DOWN_RIGHT}
 
 PIECE_MAPPING = {
