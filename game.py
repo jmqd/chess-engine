@@ -15,6 +15,7 @@ from piece import Bishop
 from piece import Knight
 from piece import Pawn
 
+from move import LegalMoveStrategy
 from engine import ChessEngine
 
 from util import to_algebraic
@@ -56,7 +57,7 @@ class Game:
         return Color.white if self.active_player == Color.black else Color.white
 
     def legal_moves_for_square(self, square: Square) -> Sequence[int]:
-        return square.piece.legal_move_strategy(self, square).get_legal_moves()
+        return LegalMoveStrategy.of(square.piece)(self, square).get_legal_moves()
 
     def find_all_legal_moves(self) -> Sequence[Tuple[int]]:
         legal_moves = []
@@ -69,7 +70,7 @@ class Game:
 
     def show(self) -> None:
         screen = []
-        print("Evaluation: {}".format(self.computer.evaluate_position_materially(self.position)))
+        print("Evaluation: {}".format(self.computer.evaluate_position(self.position)))
         for index, line in enumerate(str(self.position).split('\n')):
             print(8 - index, line)
         print(" " * 4 + '    '.join(x for x in A_THRU_H))
