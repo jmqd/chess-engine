@@ -22,6 +22,7 @@ PAWN_VALUE = 1
 BISHOP_VALUE = 3.1
 KNIGHT_VALUE = 3
 ROOK_VALUE = 5
+KING_VALUE = QUEEN_VALUE + PAWN_VALUE * 8 + BISHOP_VALUE * 2 + KNIGHT_VALUE * 2 + ROOK_VALUE * 2 + 1
 
 # movement consts
 EMPTY_SQUARE = ' '
@@ -259,6 +260,7 @@ class King(Piece):
     name = 'King'
     short_name = 'K'
     legal_move_strategy = KingLegalMoveStrategy
+    value = KING_VALUE
 
     def potentials(self) -> Sequence[int]:
         return {UP, DOWN, LEFT, RIGHT,
