@@ -15,9 +15,9 @@ VERTICAL_STEP = 8
 HORIZONTAL_STEP = 1
 
 class Square:
-    def __init__(self, numeric_index: Any, piece: Optional[Piece] = None):
-        self.numeric_index = numeric_index
-        self.algebraic_index = to_algebraic(numeric_index)
+    def __init__(self, index: Any, piece: Optional[Piece] = None):
+        self.index = index
+        self.algebraic_index = to_algebraic(index)
         self._piece = piece
 
     @property
@@ -115,7 +115,7 @@ class Position:
         elif type(square) == str:
             index = to_numeric(square)
         elif type(square) == Square:
-            index = square.numeric_index
+            index = square.index
         return self.grid[index]
 
     def __setitem__(self, square: Any, value: Any) -> None:

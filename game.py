@@ -70,7 +70,7 @@ class Game:
 
     def show(self) -> None:
         screen = []
-        print("Evaluation: {}".format(self.computer.evaluate_position(self.position)))
+        print("Evaluation: {}".format(self.computer.evaluate(self.position)))
         for index, line in enumerate(str(self.position).split('\n')):
             print(8 - index, line)
         print(" " * 4 + '    '.join(x for x in A_THRU_H))
@@ -90,7 +90,7 @@ class Game:
 
         logging.info("Legal moves for %s: %s", square, legal_moves)
 
-        if new_square.numeric_index not in legal_moves:
+        if new_square.index not in legal_moves:
             raise IllegalMoveException("You can't move that there!")
 
         captured_piece = None

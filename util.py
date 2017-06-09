@@ -13,11 +13,11 @@ ALGEBRAIC_TO_NUMERICAL = {a:n for n, a in enumerate(NUMERICAL_TO_ALGEBRAIC)}
 TOP_LEFT_SQUARE = 0
 BOTTOM_RIGHT_SQUARE = 63
 
-def to_algebraic(numeric_index: int) -> str:
+def to_algebraic(index: int) -> str:
     try:
-        return NUMERICAL_TO_ALGEBRAIC[numeric_index]
+        return NUMERICAL_TO_ALGEBRAIC[index]
     except IndexError:
-        return numeric_index
+        return index
 
 def to_numeric(algebraic_notation: str) -> int:
     try:

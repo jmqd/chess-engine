@@ -50,22 +50,22 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
 
     def is_legal(self, move: Move) -> bool:
         '''A base implementation of is_legal. Can be overridden for exception pieces.'''
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         default_legal_move_invariants = (
-                is_valid_move(self.square.numeric_index, move),
+                is_valid_move(self.square.index, move),
                 self.game.is_empty_or_capturable(square_if_moved),
-                self.game.position.is_path_clear(self.square.numeric_index, move)
+                self.game.position.is_path_clear(self.square.index, move)
                 )
 
         return all(default_legal_move_invariants)
 
     def get_legal_moves(self) -> Sequence[int]:
-        pos = self.square.numeric_index
+        pos = self.square.index
         return set(pos + move for move in self.get_potential_moves() if self.is_legal(move))
 
 class RayPieceStrategyMixin:
     def get_legal_moves(self) -> Sequence[int]:
-        pos = self.square.numeric_index
+        pos = self.square.index
         return set(pos + move for move in self.get_potential_moves(pos) if self.is_legal(move))
 
 
@@ -91,14 +91,14 @@ class QueenLegalMoveStrategy(RayPieceStrategyMixin, LegalMoveStrategy):
 
 class KnightLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move: Move) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         expected_col_difference = 1 if row_dist == 2 else 2
 
         try:
             legal_knight_move_invariants = (
                     row_dist in (1, 2),
                     abs(col_if_moved - current_col) == expected_col_difference,
-                    is_valid_move(self.square.numeric_index, move),
+                    is_valid_move(self.square.index, move),
                     self.game.is_empty_or_capturable(square_if_moved)
                     )
         except IndexError as e:
@@ -114,16 +114,16 @@ class KnightLegalMoveStrategy(LegalMoveStrategy):
 
 class PawnLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move: Move) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         if col_dist_if_moved == 0:
             pawn_move_invariants = (
-                    is_valid_move(self.square.numeric_index, move),
+                    is_valid_move(self.square.index, move),
                     self.game.is_empty(square_if_moved),
-                    self.game.position.is_path_clear(self.square.numeric_index, move)
+                    self.game.position.is_path_clear(self.square.index, move)
                     )
         else:
             pawn_move_invariants = (
-                    is_valid_move(self.square.numeric_index, move),
+                    is_valid_move(self.square.index, move),
                     col_dist_if_moved == 1,
                     self.game.is_capturable(square_if_moved)
                     )
@@ -142,20 +142,20 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
 
 class KingLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move: Move) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.numeric_index, move)
+        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         logging.debug("checking legality of moving king from %s to %s",
-                to_algebraic(self.square.numeric_index),
+                to_algebraic(self.square.index),
                 to_algebraic(square_if_moved))
         try:
             king_move_invariants = (
-                    is_valid_move(self.square.numeric_index, move),
+                    is_valid_move(self.square.index, move),
                     self.game.is_empty_or_capturable(square_if_moved)
                     )
         except IndexError:
             return False
         result = all(king_move_invariants)
         logging.debug("decided moving king at %s to %s is %s",
-                to_algebraic(self.square.numeric_index),
+                to_algebraic(self.square.index),
                 to_algebraic(square_if_moved),
                 "legal" if result else "not legal")
         return result

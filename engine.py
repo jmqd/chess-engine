@@ -1,6 +1,6 @@
 import random
-import operator
 import logging
+from operator import __iadd__, __isub__
 
 from piece import Color
 from piece import Pawn
@@ -13,6 +13,8 @@ from piece import Knight
 from position import Position
 
 EVEN_EVALUATION = 0.0
+WHITE = Color.white
+BLACK = Color.black
 
 class ChessEngine:
     def __init__(self, game: object) -> None:
@@ -24,12 +26,12 @@ class ChessEngine:
         return move
 
     @staticmethod
-    def evaluate_position(position: Position) -> float:
+    def evaluate(position: Position) -> float:
         # TODO: continue implementing
         evaluation = EVEN_EVALUATION
         for square in position:
             if square.is_empty(): continue
-            reckon = operator.__iadd__ if square.piece.color == Color.white else operator.__isub__
+            reckon = __iadd__ if square.piece.color == WHITE else __isub__
             reckon(evaluation, square.piece.value)
             # TODO: implement positional evaluations
             # reckon(evaluation, evaluate_positionally(square))
@@ -39,4 +41,4 @@ def evaluate_positionally(square: 'Square') -> float:
     evaluation = EVEN_EVALUATION
     if square.piece.__class__ == Pawn:
         # TODO: do the right weighting math here
-        evaluation += square.piece.distance_from_promotion(square.numeric_index)
+        evaluation += square.piece.distance_from_promotion(square.index)
