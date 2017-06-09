@@ -19,6 +19,7 @@ EMPTY_SQUARE = ' '
 
 class Piece(metaclass = abc.ABCMeta):
     def __init__(self, color: Color) -> None:
+        self.square = None
         self.color = color
         self.moves = []
         self.pins = []
@@ -65,11 +66,11 @@ class Pawn(Piece):
     short_name = 'P'
     value = PAWN_VALUE
 
-    def distance_from_promotion(self, square_index: int) -> int:
+    def distance_from_promotion(self) -> int:
         if self.color == Color.black:
-            return 6 - (square_index // 8 - 6)
+            return 7 - self.square.index // 8
         elif self.color == Color.white:
-            return 6 - (square_index // 8 - 2)
+            return self.square.index // 8
 
 PIECE_MAPPING = {
     'R': Rook,

@@ -38,9 +38,9 @@ COLORS = [Color.black, Color.white]
 
 class Game:
     def __init__(self, position: Optional[Position] = None) -> None:
-        self.position = position or Position(STANDARD_STARTING_POSITION)
+        self.position = position or Position(STANDARD_STARTING_POSITION, Color.white)
         self.move_history = []
-        self.active_player = Color.white
+        self._active_player = Color.white
         self.captured_pieces = []
         self.is_playing = True
 
@@ -49,6 +49,15 @@ class Game:
         self.is_computer_playing = None
         self.computer_color = None
 
+    @property
+    def active_player(self):
+        return self._active_player
+
+    @active_player.setter
+    def active_player(self, new_player):
+        self._active_player = new_player
+        self.position.active_player = new_player
+
     def next_player(self) -> Color:
         return Color.white if self.active_player == Color.black else Color.black
 
@@ -56,21 +65,10 @@ class Game:
     def inactive_player(self) -> Color:
         return Color.white if self.active_player == Color.black else Color.white
 
-    def legal_moves_for_square(self, square: Square) -> Sequence[int]:
-        return LegalMoveStrategy.of(square.piece)(self, square).get_legal_moves()
-
-    def find_all_legal_moves(self) -> Sequence[Tuple[int]]:
-        legal_moves = []
-        for i, square in enumerate(self.position):
-            if square.is_empty() or square.piece.color != self.active_player: continue
-            for legal_move in self.legal_moves_for_square(square):
-                legal_moves.append((i, legal_move))
-        return legal_moves
-
-
     def show(self) -> None:
         screen = []
-        print("Evaluation: {}".format(self.computer.evaluate(self.position)))
+        evaluation = round(self.computer.evaluate(self.position), 3)
+        print("Evaluation: {}".format(evaluation))
         for index, line in enumerate(str(self.position).split('\n')):
             print(8 - index, line)
         print(" " * 4 + '    '.join(x for x in A_THRU_H))
@@ -86,7 +84,7 @@ class Game:
         if square.piece.color != self.active_player:
             raise IllegalMoveException("That piece belongs to {}!".format(self.active_player.name))
 
-        legal_moves = self.legal_moves_for_square(square)
+        legal_moves = self.position.legal_moves_for_square(square)
 
         logging.info("Legal moves for %s: %s", square, legal_moves)
 
@@ -156,23 +154,8 @@ class Game:
                 except Exception as e:
                     raise
 
-    def is_empty_or_capturable(self, square: Square) -> bool:
-        return self.is_empty(square) or self.is_capturable(square)
-
     def is_occupied(self, square: Square) -> bool:
         return not self.is_empty(square)
-
-    def is_empty(self, square_index: Any) -> bool:
-        logging.debug("Checking if %s is empty...", square_index)
-        result = self.position[square_index].is_empty()
-        logging.debug("%s is %s", square_index, 'empty' if result else 'not empty')
-        return result
-
-    def is_capturable(self, square_index: Any) -> bool:
-        logging.debug("Checking if %s is capturable...", square_index)
-        result = not self.is_empty(square_index) and self.position[square_index].piece.color != self.active_player
-        logging.debug("%s is %s", to_algebraic(square_index), 'capturable' if result else 'not capturable')
-        return result
 
 
 def tmp_function_print_squares_for_pieces(game: Game) -> None:

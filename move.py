@@ -32,8 +32,8 @@ class Move:
         return '{} {}'.format(to_algebraic(self.origin), to_algebraic(self.destination))
 
 class LegalMoveStrategy(metaclass = abc.ABCMeta):
-    def __init__(self, game, square):
-        self.game = game
+    def __init__(self, position: 'Position', square: 'Square') -> None:
+        self.position = position
         self.square = square
         self.piece = self.square.piece
 
@@ -43,8 +43,8 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
 
     def is_in_check(self) -> bool:
         move = self.move
-        proposed_position = self.game.position.get_transposition(move)
-        if proposed_position.is_in_check(self.game.active_player):
+        proposed_position = self.position.get_transposition(move)
+        if proposed_position.is_in_check(self.position.active_player):
             return True
         return False
 
@@ -53,8 +53,8 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
         square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         default_legal_move_invariants = (
                 is_valid_move(self.square.index, move),
-                self.game.is_empty_or_capturable(square_if_moved),
-                self.game.position.is_path_clear(self.square.index, move)
+                self.position.is_empty_or_capturable(square_if_moved),
+                self.position.is_path_clear(self.square.index, move)
                 )
 
         return all(default_legal_move_invariants)
@@ -99,7 +99,7 @@ class KnightLegalMoveStrategy(LegalMoveStrategy):
                     row_dist in (1, 2),
                     abs(col_if_moved - current_col) == expected_col_difference,
                     is_valid_move(self.square.index, move),
-                    self.game.is_empty_or_capturable(square_if_moved)
+                    self.position.is_empty_or_capturable(square_if_moved)
                     )
         except IndexError as e:
             return False
@@ -118,14 +118,14 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
         if col_dist_if_moved == 0:
             pawn_move_invariants = (
                     is_valid_move(self.square.index, move),
-                    self.game.is_empty(square_if_moved),
-                    self.game.position.is_path_clear(self.square.index, move)
+                    self.position.is_empty(square_if_moved),
+                    self.position.is_path_clear(self.square.index, move)
                     )
         else:
             pawn_move_invariants = (
                     is_valid_move(self.square.index, move),
                     col_dist_if_moved == 1,
-                    self.game.is_capturable(square_if_moved)
+                    self.position.is_capturable(square_if_moved)
                     )
         return all(pawn_move_invariants)
 
@@ -149,7 +149,7 @@ class KingLegalMoveStrategy(LegalMoveStrategy):
         try:
             king_move_invariants = (
                     is_valid_move(self.square.index, move),
-                    self.game.is_empty_or_capturable(square_if_moved)
+                    self.position.is_empty_or_capturable(square_if_moved)
                     )
         except IndexError:
             return False

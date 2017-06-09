@@ -1,7 +1,9 @@
 import copy
 import operator
+import logging
 from typing import Sequence, List, Dict, Tuple, Any, Optional
 
+from move import LegalMoveStrategy
 from piece import Piece
 from piece import Color
 
@@ -18,7 +20,7 @@ class Square:
     def __init__(self, index: Any, piece: Optional[Piece] = None):
         self.index = index
         self.algebraic_index = to_algebraic(index)
-        self._piece = piece
+        self.piece = piece
 
     @property
     def piece(self) -> Piece:
@@ -27,6 +29,9 @@ class Square:
     @piece.setter
     def piece(self, val: Piece) -> None:
         self._piece = val
+
+        if self._piece:
+            self._piece.square = self
 
     def is_empty(self) -> bool:
         return self.piece is None
@@ -48,11 +53,38 @@ class Square:
 
 
 class Position:
-    def __init__(self, position_data: List[str]) -> None:
+    def __init__(self, position_data: List[str], active_player: Color = Color.white) -> None:
         self.grid = self.serialize(position_data)
+        self.active_player = active_player
 
         # state for iterator. probs should refactor this
         self.__it_checkpoint = -1
+
+    def find_all_legal_moves(self) -> Sequence[Tuple[int]]:
+        legal_moves = []
+        for i, square in enumerate(self):
+            if square.is_empty() or square.piece.color != self.active_player: continue
+            for legal_move in self.legal_moves_for_square(square):
+                legal_moves.append((i, legal_move))
+        return legal_moves
+
+    def legal_moves_for_square(self, square: Square) -> Sequence[int]:
+        return LegalMoveStrategy.of(square.piece)(self, square).get_legal_moves()
+
+    def is_empty_or_capturable(self, square: Square) -> bool:
+        return self.is_empty(square) or self.is_capturable(square)
+
+    def is_empty(self, index: Any) -> bool:
+        logging.debug("Checking if %s is empty...", index)
+        result = self[index].is_empty()
+        logging.debug("%s is %s", index, 'empty' if result else 'not empty')
+        return result
+
+    def is_capturable(self, index: Any) -> bool:
+        logging.debug("Checking if %s is capturable...", index)
+        result = not self.is_empty(index) and self[index].piece.color != self.active_player
+        logging.debug("%s is %s", to_algebraic(index), 'capturable' if result else 'not capturable')
+        return result
 
     def find_piece_squares(self, piece_class: Piece, color: Color) -> List[int]:
         square_indices = []
@@ -62,21 +94,50 @@ class Position:
         return square_indices
 
     def is_path_clear(self, origin: int, displacement: int) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(origin, displacement)
+        (square_if_moved, current_col,
+         col_if_moved, col_dist_if_moved,
+         row_dist) = get_move_facts(origin, displacement)
+
+        # moving horizontally? (iff)
         if row_dist == 0 and col_dist_if_moved > 0:
             step_magnitude = HORIZONTAL_STEP
+
+        # moving vertically? (iff)
         if row_dist > 0 and col_dist_if_moved == 0:
             step_magnitude = VERTICAL_STEP
+
+        # moving diaganolly? (iff)
         if row_dist > 0 and col_dist_if_moved > 0:
             step_magnitude = 9 if displacement % 9 == 0 else 7
 
+        '''If our displacement is negative, we're moving to the left in the
+        position array. And vice-a-versa.
+
+        e.g.
+
+        ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1']
+
+        Say I have a rook on H1 and I move it to E1.
+        My index goes from 7 to 4.
+        '''
         step = operator.__add__ if displacement < 0 else operator.__sub__
-        displacement = step(displacement, step_magnitude)
-        while displacement > step_magnitude:
-            if not self[origin + displacement].is_empty():
+
+        '''Starting from the origin square and moving forward towards its target
+        destination, while we are not yet at the target square, check if this
+        square is empty.
+        '''
+        steps_taken = step_magnitude
+        while steps_taken < displacement:
+            if not self[origin + steps_taken].is_empty():
                 return False
-            displacement = step(displacement, step_magnitude)
+            steps_taken = step(steps_taken, step_magnitude)
         return True
+
+    def successors(self):
+        positions = []
+        for move in self.find_all_legal_moves():
+            positions.append(self.get_transposition(move))
+        return positions
 
     def get_transposition(self, move: Move) -> object:
         origin, destination = move
