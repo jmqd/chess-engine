@@ -3,24 +3,23 @@ import random
 import logging
 from typing import Tuple, Sequence, Any, Optional
 
-from position import Position
-from position import Square
+from src.position import Position
+from src.position import Square
 
-from piece import Piece
-from piece import Color
-from piece import King
-from piece import Queen
-from piece import Rook
-from piece import Bishop
-from piece import Knight
-from piece import Pawn
+from src.piece import Piece
+from src.piece import Color
+from src.piece import King
+from src.piece import Queen
+from src.piece import Rook
+from src.piece import Bishop
+from src.piece import Knight
+from src.piece import Pawn
 
-from move import LegalMoveStrategy
-from engine import ChessEngine
+from src.move import LegalMoveStrategy
+from src.engine import ChessEngine
 
-from util import to_algebraic
-from util import A_THRU_H
-
+from src.util import to_algebraic
+from src.util import A_THRU_H
 
 STANDARD_STARTING_POSITION = [
     'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
@@ -67,9 +66,10 @@ class Game:
 
     def show(self) -> None:
         screen = []
-        evaluation = round(self.computer.evaluate(self.position), 3)
-        print("Evaluation: {}".format(evaluation))
-        for index, line in enumerate(str(self.position).split('\n')):
+        if self.is_computer_playing:
+            evaluation = round(self.computer.evaluate(self.position), 3)
+            print("Evaluation: {}".format(evaluation))
+        for index, line in enumerate(self.position.get_pretty_text().split('\n')):
             print(8 - index, line)
         print(" " * 4 + '    '.join(x for x in A_THRU_H))
 
@@ -86,9 +86,9 @@ class Game:
 
         legal_moves = self.position.legal_moves_for_square(square)
 
-        logging.info("Legal moves for %s: %s", square, legal_moves)
+        logging.info("Legal moves for %s: %s", square, set(str(x) for x in legal_moves))
 
-        if new_square.index not in legal_moves:
+        if not any([x.destination == new_square.index for x in legal_moves]):
             raise IllegalMoveException("You can't move that there!")
 
         captured_piece = None
@@ -122,7 +122,8 @@ class Game:
     def prompt_for_mode(self) -> None:
         self.is_computer_playing = True if input("Play against the computer? y/n > ") == "y" else False
         self.computer_color = Color.white if input("Choose black or white b/w > ") == 'b' else Color.black
-        self.start_engine()
+        if self.is_computer_playing:
+            self.start_engine()
 
     @staticmethod
     def play() -> None:
@@ -132,8 +133,8 @@ class Game:
         while game.is_playing:
             tmp_function_print_squares_for_pieces(game)
             if game.is_computer_playing and game.computer_color == game.active_player:
-                origin, destination = game.computer.choose_random_move()
-                game.move(origin, destination)
+                computer_move = game.computer.choose_random_move()
+                game.move(computer_move.origin, computer_move.destination)
 
             game.show()
             move = input("{} to move: ".format(game.active_player.name))
