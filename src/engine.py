@@ -1,37 +1,43 @@
 import random
 import logging
-from operator import __iadd__, __isub__
+from typing import Dict, Optional
+from operator import __iadd__, __isub__, __lt__, __gt__
+from collections import namedtuple
 
-from piece import Piece
-from piece import Pawn
-from piece import King
-from piece import Rook
-from piece import Queen
-from piece import Color
-from piece import Knight
-from piece import Bishop
+from src.piece import Piece
+from src.piece import Pawn
+from src.piece import King
+from src.piece import Rook
+from src.piece import Queen
+from src.piece import Color
+from src.piece import Knight
+from src.piece import Bishop
+from src.position import Position
 
-from position import Position
+
+EvaluatedPosition = namedtuple('EvaluatedPosition', ['position', 'evaluation'])
+EvaluationTree = Optional[Dict[EvaluatedPosition, 'EvaluationTree']]
+GET_EVAL = lambda x: x.evaluation
 
 EVEN_EVALUATION = 0.0
 
-DEFAULT_DEPTH = 2
+DEFAULT_DEPTH = 3
 WEIGH_PAWN_POSITION = lambda x: (6 - x) * 0.1
 PASSED_PAWN_WEIGHT = 2.0
 
 class ChessEngine:
     def __init__(self, game: object) -> None:
         self.game = game
+        self.tree = {}
 
-    def choose_random_move(self) -> tuple:
+    def choose_random_move(self) -> 'Move':
         move = random.choice(self.game.position.find_all_legal_moves())
         print("Computer chose this move: {}".format(move))
         return move
 
     def evaluate(self, position: Position) -> float:
-        result = self.minimax(position)
-        print(result[1])
-        return result[0]
+        evaluated_position = self.minimax(position)
+        return evaluated_position.evaluation
 
     @staticmethod
     def _evaluate(position: Position) -> float:
@@ -44,23 +50,39 @@ class ChessEngine:
             evaluation = reckon(evaluation, evaluate_positionally(square, position))
         return evaluation
 
-    def minimax(self, position: Position, depth: int = DEFAULT_DEPTH):
+    def get_successor_positons(self, tree: EvaluationTree):
+        #TODO
+        raise NotImplementedError()
+
+    def minimax(self, position: Position,
+            depth: int = DEFAULT_DEPTH, alpha: float = float('-inf'),
+            beta: float = float('inf')) -> EvaluatedPosition:
+        # terminating base case
         if depth == 0:
-            return self._evaluate(position), position
+            return EvaluatedPosition(position, self._evaluate(position))
 
-        if self.game.active_player == Color.white:
-            max_eval = float('-inf')
-            for next_position in position.successors():
-                max_local = self.minimax(next_position, depth - 1)
-                max_eval = max(max_local[0], max_eval)
-            return max_eval, position
+        # setting initial best as well as min|max function depending on black or white
+        if position.active_player == Color.white:
+            best = EvaluatedPosition(None, float('-inf'))
+            optimize = max
+        elif position.active_player == Color.black:
+            best = EvaluatedPosition(None, float('inf'))
+            optimize = min
 
-        if self.game.active_player == Color.black:
-            max_eval = float('inf')
-            for next_position in position.successors():
-                max_local = self.minimax(next_position, depth - 1)
-                max_eval = min(max_local[0], max_eval)
-            return max_eval, position
+        # meat of the recursion
+        for next_position in position.successors():
+            best = optimize(best, self.minimax(next_position, depth - 1, alpha, beta),
+                    key = GET_EVAL)
+
+            if position.active_player == Color.white:
+                alpha = optimize(alpha, best.evaluation)
+            elif position.active_player == Color.black:
+                beta = optimize(beta, best.evaluation)
+
+            if alpha >= beta:
+                break
+
+        return best
 
 def evaluate_positionally(square: 'Square', position: Position) -> float:
     # TODO: implement positional evaluations
