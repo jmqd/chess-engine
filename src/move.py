@@ -1,12 +1,14 @@
 import abc
 import logging
 from typing import Sequence
+from enum import Enum
 
-from piece import Color
 
-from util import get_move_facts
-from util import is_valid_move
-from util import to_algebraic
+from src.piece import Color
+
+from src.util import get_move_facts
+from src.util import is_valid_move
+from src.util import to_algebraic
 
 DOWN = 8
 RIGHT = 1
@@ -16,6 +18,16 @@ DOWN_RIGHT = DOWN + RIGHT
 DOWN_LEFT = DOWN + LEFT
 UP_LEFT = UP + LEFT
 UP_RIGHT = UP + RIGHT
+
+class Direction(Enum):
+    UP = -8
+    DOWN = 8
+    LEFT = -1
+    RIGHT = 1
+    DOWN_RIGHT = 9
+    DOWN_LEFT = 7
+    UP_LEFT = -7
+    UP_RIGHT = -9
 
 class Move:
     def __init__(self, origin: int, delta: int) -> None:
@@ -27,6 +39,31 @@ class Move:
         self.destination_col,
         self.dx,
         self.dy) = get_move_facts(origin, delta)
+        self.direction = self.decide_direction()
+
+    def __str__(self):
+        return '{}->{}'.format(self.origin, self.destination)
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def decide_direction(self):
+        if self.dy == 0 and self.dx != 0:
+            return Direction.LEFT if self.delta < 0 else Direction.RIGHT
+
+        # moving vertically? (iff)
+        if self.dy != 0 and self.dx == 0:
+            return Direction.UP if self.delta < 0 else Direction.DOWN
+
+        # moving diaganolly? (iff)
+        if self.dy != 0 and self.dx != 0:
+            if self.delta < 0:
+                return Direction.UP_LEFT if self.delta % 9 == 0 else Direction.UP_RIGHT
+            if self.delta > 0:
+                return Direction.DOWN_LEFT if self.delta % 9 == 0 else Direction.DOWN_RIGHT
+
+        if 'Code bug':
+            raise Exception("Code logic error here... should have returned a direction.")
 
     def __str__(self):
         return '{} {}'.format(to_algebraic(self.origin), to_algebraic(self.destination))
@@ -41,6 +78,11 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
     def of(piece: 'Piece') -> 'LegalMoveStrategy':
         return PIECE_STRATEGY_MAPPING[piece.name]
 
+    def validate_can_move(self):
+        if self.square.is_empty() or self.position.active_player != self.piece.color:
+            return False
+        return True
+
     def is_in_check(self) -> bool:
         move = self.move
         proposed_position = self.position.get_transposition(move)
@@ -50,24 +92,38 @@ class LegalMoveStrategy(metaclass = abc.ABCMeta):
 
     def is_legal(self, move: Move) -> bool:
         '''A base implementation of is_legal. Can be overridden for exception pieces.'''
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         default_legal_move_invariants = (
-                is_valid_move(self.square.index, move),
-                self.position.is_empty_or_capturable(square_if_moved),
-                self.position.is_path_clear(self.square.index, move)
+                is_valid_move(self.square.index, move.delta),
+                self.position.is_empty_or_capturable(move.destination),
+                self.position.is_path_clear(move)
                 )
 
         return all(default_legal_move_invariants)
 
     def get_legal_moves(self) -> Sequence[int]:
+        if not self.validate_can_move():
+            return set()
+
         pos = self.square.index
-        return set(pos + move for move in self.get_potential_moves() if self.is_legal(move))
+        legal_moves = set()
+        for delta in self.get_potential_moves():
+            move = Move(pos, delta)
+            if self.is_legal(move):
+                legal_moves.add(move)
+        return legal_moves
 
 class RayPieceStrategyMixin:
     def get_legal_moves(self) -> Sequence[int]:
-        pos = self.square.index
-        return set(pos + move for move in self.get_potential_moves(pos) if self.is_legal(move))
+        if not self.validate_can_move():
+            return set()
 
+        pos = self.square.index
+        legal_moves = set()
+        for delta in self.get_potential_moves(pos):
+            move = Move(pos, delta)
+            if self.is_legal(move):
+                legal_moves.add(move)
+        return legal_moves
 
 #TODO: lots of repetition here. Use mixins. Clean it up.
 
@@ -91,16 +147,16 @@ class QueenLegalMoveStrategy(RayPieceStrategyMixin, LegalMoveStrategy):
 
 class KnightLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move: Move) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
-        expected_col_difference = 1 if row_dist == 2 else 2
+        dx_invariant = 1 if move.dy == 2 else 2
 
         try:
             legal_knight_move_invariants = (
-                    row_dist in (1, 2),
-                    abs(col_if_moved - current_col) == expected_col_difference,
-                    is_valid_move(self.square.index, move),
-                    self.position.is_empty_or_capturable(square_if_moved)
+                    move.dy in (1, 2),
+                    move.dx == dx_invariant,
+                    is_valid_move(move.origin, move.delta),
+                    self.position.is_empty_or_capturable(move.destination)
                     )
+
         except IndexError as e:
             return False
 
@@ -114,18 +170,17 @@ class KnightLegalMoveStrategy(LegalMoveStrategy):
 
 class PawnLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move: Move) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
-        if col_dist_if_moved == 0:
+        if move.dx == 0:
             pawn_move_invariants = (
-                    is_valid_move(self.square.index, move),
-                    self.position.is_empty(square_if_moved),
-                    self.position.is_path_clear(self.square.index, move)
+                    is_valid_move(move.origin, move.delta),
+                    self.position.is_empty(move.destination),
+                    self.position.is_path_clear(move)
                     )
         else:
             pawn_move_invariants = (
-                    is_valid_move(self.square.index, move),
-                    col_dist_if_moved == 1,
-                    self.position.is_capturable(square_if_moved)
+                    is_valid_move(move.origin, move.delta),
+                    move.dx == 1,
+                    self.position.is_capturable(move.destination)
                     )
         return all(pawn_move_invariants)
 
@@ -142,22 +197,23 @@ class PawnLegalMoveStrategy(LegalMoveStrategy):
 
 class KingLegalMoveStrategy(LegalMoveStrategy):
     def is_legal(self, move: Move) -> bool:
-        square_if_moved, current_col, col_if_moved, col_dist_if_moved, row_dist = get_move_facts(self.square.index, move)
         logging.debug("checking legality of moving king from %s to %s",
-                to_algebraic(self.square.index),
-                to_algebraic(square_if_moved))
+                to_algebraic(move.origin),
+                to_algebraic(move.destination))
         try:
             king_move_invariants = (
-                    is_valid_move(self.square.index, move),
-                    self.position.is_empty_or_capturable(square_if_moved)
+                    is_valid_move(move.origin, move.delta),
+                    self.position.is_empty_or_capturable(move.destination)
                     )
         except IndexError:
             return False
+
         result = all(king_move_invariants)
         logging.debug("decided moving king at %s to %s is %s",
-                to_algebraic(self.square.index),
-                to_algebraic(square_if_moved),
+                to_algebraic(move.origin),
+                to_algebraic(move.destination),
                 "legal" if result else "not legal")
+
         return result
 
     def get_potential_moves(self) -> Sequence[int]:
