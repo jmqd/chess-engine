@@ -3,13 +3,13 @@ import operator
 import logging
 from typing import Sequence, List, Dict, Tuple, Any, Optional
 
-from move import LegalMoveStrategy
-from piece import Piece
-from piece import Color
+from src.move import LegalMoveStrategy
+from src.piece import Piece
+from src.piece import Color
 
-from util import to_algebraic
-from util import to_numeric
-from util import get_move_facts
+from src.util import to_algebraic
+from src.util import to_numeric
+from src.util import get_move_facts
 
 Move = Tuple[int, int]
 EMPTY_BOARD = [' '] * 64
@@ -46,10 +46,7 @@ class Square:
             return self.piece.color
 
     def __str__(self) -> str:
-        if self.piece is None:
-            return ' '
-        else:
-            return str(self.piece)
+        return '{}: {}'.format(self.algebraic_index, self.piece)
 
 
 class Position:
@@ -62,10 +59,9 @@ class Position:
 
     def find_all_legal_moves(self) -> Sequence[Tuple[int]]:
         legal_moves = []
-        for i, square in enumerate(self):
+        for square in self:
             if square.is_empty() or square.piece.color != self.active_player: continue
-            for legal_move in self.legal_moves_for_square(square):
-                legal_moves.append((i, legal_move))
+            legal_moves.extend(self.legal_moves_for_square(square))
         return legal_moves
 
     def legal_moves_for_square(self, square: Square) -> Sequence[int]:
@@ -93,23 +89,7 @@ class Position:
                 square_indices.append(sq_index)
         return square_indices
 
-    def is_path_clear(self, origin: int, displacement: int) -> bool:
-        (square_if_moved, current_col,
-         col_if_moved, col_dist_if_moved,
-         row_dist) = get_move_facts(origin, displacement)
-
-        # moving horizontally? (iff)
-        if row_dist == 0 and col_dist_if_moved > 0:
-            step_magnitude = HORIZONTAL_STEP
-
-        # moving vertically? (iff)
-        if row_dist > 0 and col_dist_if_moved == 0:
-            step_magnitude = VERTICAL_STEP
-
-        # moving diaganolly? (iff)
-        if row_dist > 0 and col_dist_if_moved > 0:
-            step_magnitude = 9 if displacement % 9 == 0 else 7
-
+    def is_path_clear(self, move: Move) -> bool:
         '''If our displacement is negative, we're moving to the left in the
         position array. And vice-a-versa.
 
@@ -119,18 +99,20 @@ class Position:
 
         Say I have a rook on H1 and I move it to E1.
         My index goes from 7 to 4.
-        '''
-        step = operator.__add__ if displacement < 0 else operator.__sub__
 
-        '''Starting from the origin square and moving forward towards its target
+        Starting from the origin square and moving forward towards its target
         destination, while we are not yet at the target square, check if this
         square is empty.
         '''
-        steps_taken = step_magnitude
-        while steps_taken < displacement:
-            if not self[origin + steps_taken].is_empty():
+        steps_taken = move.direction.value
+        while abs(steps_taken) < abs(move.delta):
+            square_to_check = move.origin + steps_taken
+            logging.info("Checking %s...", to_algebraic(square_to_check))
+            if not self[square_to_check].is_empty():
+                logging.info("Something was in the way on %s", to_algebraic(square_to_check))
                 return False
-            steps_taken = step(steps_taken, step_magnitude)
+            steps_taken += move.direction.value
+        logging.info("Path was clear for %s to %s", to_algebraic(move.origin), to_algebraic(move.origin + move.delta))
         return True
 
     def successors(self):
@@ -140,11 +122,12 @@ class Position:
         return positions
 
     def get_transposition(self, move: Move) -> object:
-        origin, destination = move
-        new_position = copy.deepcopy(self)
-        new_position[origin].piece, new_position[destination].piece = None, new_position[origin].piece
-        return new_position
+        transposition = copy.deepcopy(self)
+        transposition.swap(move.origin, move.destination)
+        return transposition
 
+    def swap(self, origin: Square, dest: Square) -> None:
+        self[origin].piece, self[origin].piece = None, self[origin].piece
 
     @staticmethod
     def serialize(data: List[str]) -> List[Square]:
@@ -156,7 +139,13 @@ class Position:
     def __str__(self) -> str:
         list_repr = []
         for first_sq_in_row in range(0, 64, 8):
-            list_repr.append(str([str(x) for x in self.grid[first_sq_in_row:first_sq_in_row + 8]]))
+            list_repr.append(str([str(x.piece or ' ') for x in self.grid[first_sq_in_row:first_sq_in_row + 8]]))
+        return "To move: {}\n{}".format(self.active_player, '\n'.join(list_repr))
+
+    def get_pretty_text(self) -> str:
+        list_repr = []
+        for first_sq_in_row in range(0, 64, 8):
+            list_repr.append(str([str(x.piece or ' ') for x in self.grid[first_sq_in_row:first_sq_in_row + 8]]))
         return '\n'.join(list_repr)
 
     def __iter__(self):
