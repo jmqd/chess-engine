@@ -2,7 +2,7 @@
 
 ## Todo
 
-- [x] Fix broken bishop jumping over pawns
+- [x] ~~Fix broken bishop jumping over pawns~~
 - [ ] Clean code up. Thing is a mess.
 - [ ] Refactor LegalMoveStrategy / legal move generation. Thing is a mess.
 - [ ] Implement actual engine.
