@@ -1,7 +1,7 @@
 import sys
 import random
 import logging
-from typing import Tuple, Sequence, Any, Optional
+from typing import Tuple, Sequence, Any, Optional, List
 
 from src.position import Position
 from src.position import Square
@@ -126,8 +126,9 @@ class Game:
             self.start_engine()
 
     @staticmethod
-    def play() -> None:
-        game = Game()
+    def play(position: List[str], color: Color) -> None:
+        start_position = Position(position, color)
+        game = Game(start_position)
         game.prompt_for_mode()
 
         while game.is_playing:
