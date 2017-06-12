@@ -51,7 +51,9 @@ class Square:
 
 class Position:
     def __init__(self, position_data: List[str], active_player: Color = Color.white) -> None:
-        self.grid = self.serialize(position_data)
+        if position_data is not None:
+            self.grid = self.serialize(position_data)
+
         self.active_player = active_player
 
         # state for iterator. probs should refactor this
@@ -117,13 +119,13 @@ class Position:
 
     def successors(self):
         positions = []
-        for move in self.find_all_legal_moves():
-            positions.append(self.get_transposition(move))
+        positions.extend(self.get_transposition(x) for x in self.find_all_legal_moves())
         return positions
 
     def get_transposition(self, move: Move) -> object:
         transposition = copy.deepcopy(self)
         transposition.swap(move.origin, move.destination)
+        transposition.active_player = Color.black if self.active_player == Color.white else Color.white
         return transposition
 
     def swap(self, origin: Square, dest: Square) -> None:
