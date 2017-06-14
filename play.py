@@ -48,6 +48,7 @@ def show_legal_moves(starting_position: str, color: str) -> None:
 
     print(position)
     print([str(x) for x in position.find_all_legal_moves()])
+    print(position.deserialize())
 
 if __name__ == '__main__':
     cli()
