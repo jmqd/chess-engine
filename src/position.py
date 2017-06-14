@@ -121,8 +121,7 @@ class Position:
         return True
 
     def successors(self):
-        positions = []
-        positions.extend(self.get_transposition(x) for x in self.find_all_legal_moves())
+        positions = [self.get_transposition(x) for x in self.find_all_legal_moves()]
         return positions
 
     def get_transposition(self, move: Move) -> object:
@@ -137,7 +136,7 @@ class Position:
 
     @staticmethod
     def serialize(data: List[str]) -> List[Square]:
-        internal_position = copy.deepcopy(EMPTY_BOARD)
+        internal_position = [None] * 64
         for index, notated_char in enumerate(data):
             internal_position[index] = Square(index, Piece.from_notation(notated_char))
         return internal_position
