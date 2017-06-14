@@ -19,14 +19,15 @@ GET_EVAL = lambda x: x['evaluation']
 
 EVEN_EVALUATION = 0.0
 
-DEFAULT_DEPTH = 5
+DEFAULT_DEPTH = 7
 WEIGH_PAWN_POSITION = lambda x: (6 - x) * 0.1
 PASSED_PAWN_WEIGHT = 2.0
 
 class ChessEngine:
-    def __init__(self, game: object) -> None:
+    def __init__(self, game: object, depth: int = None) -> None:
         self.game = game
         self.tree = defaultdict(list)
+        self.max_depth = depth or DEFAULT_DEPTH
 
     def choose_random_move(self) -> 'Move':
         move = random.choice(self.game.position.find_all_legal_moves())
