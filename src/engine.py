@@ -1,8 +1,8 @@
 import random
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 from operator import __iadd__, __isub__, __lt__, __gt__
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 from src.piece import Piece
 from src.piece import Pawn
@@ -15,20 +15,18 @@ from src.piece import Bishop
 from src.position import Position
 
 
-EvaluatedPosition = namedtuple('EvaluatedPosition', ['position', 'evaluation'])
-EvaluationTree = Optional[Dict[EvaluatedPosition, 'EvaluationTree']]
-GET_EVAL = lambda x: x.evaluation
+GET_EVAL = lambda x: x['evaluation']
 
 EVEN_EVALUATION = 0.0
 
-DEFAULT_DEPTH = 3
+DEFAULT_DEPTH = 5
 WEIGH_PAWN_POSITION = lambda x: (6 - x) * 0.1
 PASSED_PAWN_WEIGHT = 2.0
 
 class ChessEngine:
     def __init__(self, game: object) -> None:
         self.game = game
-        self.tree = {}
+        self.tree = defaultdict(list)
 
     def choose_random_move(self) -> 'Move':
         move = random.choice(self.game.position.find_all_legal_moves())
@@ -36,8 +34,18 @@ class ChessEngine:
         return move
 
     def evaluate(self, position: Position) -> float:
+        if position not in self.tree:
+            pruned_tree = None
+
+            for prev_pos, prev_move_tree in self.tree.items():
+                if position in prev_move_tree:
+                    pruned_tree = prev_move_tree[position]
+
+            if pruned_tree is not None:
+                self.tree = pruned_tree
+
         evaluated_position = self.minimax(position)
-        return evaluated_position.evaluation
+        return evaluated_position
 
     @staticmethod
     def _evaluate(position: Position) -> float:
@@ -50,39 +58,55 @@ class ChessEngine:
             evaluation = reckon(evaluation, evaluate_positionally(square, position))
         return evaluation
 
-    def get_successor_positons(self, tree: EvaluationTree):
-        #TODO
-        raise NotImplementedError()
-
-    def minimax(self, position: Position,
+    def minimax(self, position: 'Position',
             depth: int = DEFAULT_DEPTH, alpha: float = float('-inf'),
-            beta: float = float('inf')) -> EvaluatedPosition:
+            beta: float = float('inf')) -> Position:
+
+        if position in self.tree:
+            return position
+
         # terminating base case
         if depth == 0:
-            return EvaluatedPosition(position, self._evaluate(position))
+            position.evaluation = self._evaluate(position)
+            position.depth = depth
+            return position
 
         # setting initial best as well as min|max function depending on black or white
         if position.active_player == Color.white:
-            best = EvaluatedPosition(None, float('-inf'))
+            best = float('-inf')
             optimize = max
+
         elif position.active_player == Color.black:
-            best = EvaluatedPosition(None, float('inf'))
+            best = float('inf')
             optimize = min
 
         # meat of the recursion
-        for next_position in position.successors():
-            best = optimize(best, self.minimax(next_position, depth - 1, alpha, beta),
-                    key = GET_EVAL)
+        if position not in self.tree:
+            self.tree[position] = position.successors()
+
+        for next_position in self.tree[position]:
+            if next_position in self.tree:
+                continue
+
+            best_leaf = self.minimax(
+                    next_position,
+                    depth = depth - 1,
+                    alpha = alpha,
+                    beta = beta)
+            best = optimize(best, best_leaf.evaluation)
 
             if position.active_player == Color.white:
-                alpha = optimize(alpha, best.evaluation)
+                alpha = optimize(alpha, best)
+
             elif position.active_player == Color.black:
-                beta = optimize(beta, best.evaluation)
+                beta = optimize(beta, best)
 
             if alpha >= beta:
                 break
 
-        return best
+        position.evaluation = best
+        position.depth = max(position.depth, depth) if position.depth is not None else depth
+        return position
 
 def evaluate_positionally(square: 'Square', position: Position) -> float:
     # TODO: implement positional evaluations
@@ -102,3 +126,4 @@ def evaluate_pawn_positionally(pawn: Piece, position: Position) -> float:
         evaluation *= PASSED_PAWN_WEIGHT
 
     return evaluation
+

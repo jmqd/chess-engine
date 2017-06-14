@@ -58,6 +58,9 @@ class Position:
 
         # state for iterator. probs should refactor this
         self.__it_checkpoint = -1
+        self.evaluation = None
+        self.depth = None
+        self.move_history = []
 
     def find_all_legal_moves(self) -> Sequence[Tuple[int]]:
         legal_moves = []
@@ -123,13 +126,14 @@ class Position:
         return positions
 
     def get_transposition(self, move: Move) -> object:
-        transposition = copy.deepcopy(self)
-        transposition.swap(move.origin, move.destination)
-        transposition.active_player = Color.black if self.active_player == Color.white else Color.white
+        new_active_player = Color.black if self.active_player == Color.white else Color.white
+        transposition = Position(self.deserialize(), new_active_player)
+        transposition.swap(move)
         return transposition
 
-    def swap(self, origin: Square, dest: Square) -> None:
-        self[origin].piece, self[origin].piece = None, self[origin].piece
+    def swap(self, move: Move) -> None:
+        self[move.origin].piece, self[move.destination].piece = None, self[move.origin].piece
+        self.move_history.append(move)
 
     @staticmethod
     def serialize(data: List[str]) -> List[Square]:
@@ -138,11 +142,20 @@ class Position:
             internal_position[index] = Square(index, Piece.from_notation(notated_char))
         return internal_position
 
+    def deserialize(self) -> List[str]:
+        deserialized_position = [None] * 64
+        for i, square in enumerate(self):
+            deserialized_position[i] = str(square.piece) if square.piece else ' '
+        return deserialized_position
+
     def __str__(self) -> str:
         list_repr = []
         for first_sq_in_row in range(0, 64, 8):
             list_repr.append(str([str(x.piece or ' ') for x in self.grid[first_sq_in_row:first_sq_in_row + 8]]))
         return "To move: {}\n{}".format(self.active_player, '\n'.join(list_repr))
+
+    def __hash__(self):
+        return hash(str(self))
 
     def get_pretty_text(self) -> str:
         list_repr = []

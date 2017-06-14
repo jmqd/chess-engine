@@ -67,10 +67,16 @@ class Game:
     def show(self) -> None:
         screen = []
         if self.is_computer_playing:
-            evaluation = round(self.computer.evaluate(self.position), 3)
-            print("Evaluation: {}".format(evaluation))
+            best_future_position = self.computer.evaluate(self.position)
+            evaluation = best_future_position.evaluation
+            print("Evaluation: {}".format(best_future_position.evaluation))
+
+            for pos in self.computer.tree[self.position]:
+                print(pos.move_history[-1], pos.evaluation)
+
         for index, line in enumerate(self.position.get_pretty_text().split('\n')):
             print(8 - index, line)
+
         print(" " * 4 + '    '.join(x for x in A_THRU_H))
 
 
