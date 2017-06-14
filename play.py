@@ -5,17 +5,7 @@ from src.game import Game
 from src.position import Position
 from src.game import STANDARD_STARTING_POSITION
 from src.piece import Color
-
-KNIGHT_FORK_POSITION = [
-    ' ', ' ', ' ', ' ', ' ', 'n', ' ', ' ',
-    ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-    ' ', 'r', ' ', ' ', ' ', ' ', ' ', ' ',
-    ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-    ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-    'k', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-    ' ', ' ', ' ', 'N', ' ', 'K', ' ', ' ',
-    ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
-        ]
+from tst.position_data import KNIGHT_FORK_POSITION
 
 STARTING_POSITIONS = {
         'standard': STANDARD_STARTING_POSITION,
