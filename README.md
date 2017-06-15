@@ -2,14 +2,21 @@
 
 ## Todo
 
+### general
 - [x] ~~Fix broken bishop jumping over pawns~~
 - [ ] Clean code up. Thing is a mess.
 - [ ] Refactor LegalMoveStrategy / legal move generation. Thing is a mess.
-- [ ] Implement actual engine.
 - [ ] Finish move legality (check, en-passant, queening, etc)
 - [ ] Import QOL for players.
 
-## todo comments
+### engine
+- [x] Implement actual engine.
+- [ ] Use iterative deepening
+- [ ] Better dynamic programming
+- [ ] Make engine faster
+- [ ] Profile code
+
+## todo comments in source
 
 ```
 [2017-06-10 23:40:18] 
